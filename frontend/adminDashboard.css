@@ -1,0 +1,62 @@
+body {
+  background-color: #f6f7fb;
+  font-family: Arial, sans-serif;
+}
+.sidebar {
+  min-height: 100vh;
+  background: #696c2b;
+  color: white;
+}
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.topbar {
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+}
+.card-box {
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+.icon-box {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(105, 108, 43, 0.12);
+  color: #696c2b;
+  font-size: 1.2rem;
+}
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #6c757d;
+}
+.quick-btn {
+  min-width: 150px;
+}
+.table td,
+.table th {
+  vertical-align: middle;
+}
+@media (max-width: 991.98px) {
+  .sidebar {
+    min-height: auto;
+  }
+}
