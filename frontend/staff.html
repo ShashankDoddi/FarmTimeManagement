@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff — Farm Time Management System</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="adminStyle.css" />
+    <link rel="stylesheet" href="staff.css" />
+  </head>
+  <body>
+    <div class="dashboard-wrapper">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="brand">
+          <i class="bi bi-clock-history me-2"></i>Farm TMS
+        </div>
+        <nav class="nav flex-column">
+          <span class="nav-section-label">Main</span>
+          <a href="adminDashboard.html" class="nav-link">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a href="#" class="nav-link">
+            <i class="bi bi-calendar3"></i> Roster
+          </a>
+          <a href="#" class="nav-link">
+            <i class="bi bi-clock"></i> Timesheets
+          </a>
+          <a href="#" class="nav-link">
+            <i class="bi bi-exclamation-circle"></i> Exceptions
+          </a>
+
+          <span class="nav-section-label">People</span>
+          <a href="staff.html" class="nav-link active">
+            <i class="bi bi-people"></i> Staff
+          </a>
+          <a href="#" class="nav-link">
+            <i class="bi bi-person-badge"></i> Roles
+          </a>
+
+          <span class="nav-section-label">System</span>
+          <a href="#" class="nav-link">
+            <i class="bi bi-bar-chart-line"></i> Reports
+          </a>
+          <a href="payslip.html" class="nav-link">
+            <i class="bi bi-receipt"></i> Payslips
+          </a>
+          <a href="#" class="nav-link"> <i class="bi bi-gear"></i> Settings </a>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <div class="main-content">
+        <!-- TOPBAR -->
+        <header class="topbar">
+          <span class="page-title">Staff</span>
+          <div class="topbar-right">
+            <span class="topbar-date">
+              <i class="bi bi-calendar3 me-1"></i>
+              Wed, 06 May 2026
+            </span>
+            <div class="admin-badge">
+              <div class="admin-avatar">AU</div>
+              Admin User
+            </div>
+          </div>
+        </header>
+
+        <!-- PAGE BODY -->
+        <div class="page-body">
+          <!-- TOP CONTROLS -->
+          <div class="staff-topbar card-box mb-4">
+            <div class="card-body py-3">
+              <div class="staff-topbar-row">
+                <div class="filter-group">
+                  <label>Search</label>
+                  <input
+                    type="text"
+                    class="filter-input"
+                    placeholder="Search by name or ID..."
+                    id="searchInput"
+                    oninput="filterTable()"
+                  />
+                </div>
+                <div class="filter-group">
+                  <label>Contract Type</label>
+                  <select
+                    class="filter-input"
+                    id="contractFilter"
+                    onchange="filterTable()"
+                  >
+                    <option value="">All</option>
+                    <option value="Full Time">Full Time</option>
+                    <option value="Part Time">Part Time</option>
+                    <option value="Casual">Casual</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label>Status</label>
+                  <select
+                    class="filter-input"
+                    id="statusFilter"
+                    onchange="filterTable()"
+                  >
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div class="staff-topbar-actions">
+                  <button class="btn-brand" onclick="openAddModal()">
+                    <i class="bi bi-person-plus me-1"></i> Add Staff
+                  </button>
+                  <button class="btn-outline-brand" onclick="exportStaff()">
+                    <i class="bi bi-download me-1"></i> Export
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STATS ROW -->
+          <div class="stats-row mb-4">
+            <div class="stat-card">
+              <div class="icon-box"><i class="bi bi-people-fill"></i></div>
+              <div>
+                <div class="stat-value" id="totalCount">5</div>
+                <div class="stat-label">Total Staff</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="icon-box"><i class="bi bi-person-check"></i></div>
+              <div>
+                <div class="stat-value" id="activeCount">4</div>
+                <div class="stat-label">Active</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="icon-box"><i class="bi bi-briefcase"></i></div>
+              <div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Full Time</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="icon-box">
+                <i class="bi bi-person-lines-fill"></i>
+              </div>
+              <div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Casual</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STAFF TABLE -->
+          <div class="card-box">
+            <div class="card-body">
+              <div
+                class="d-flex align-items-center justify-content-between mb-3"
+              >
+                <p class="section-title mb-0">All Staff</p>
+                <span
+                  style="font-size: 0.82rem; color: var(--text-muted)"
+                  id="rowCount"
+                  >Showing 5 staff</span
+                >
+              </div>
+
+              <div class="table-responsive">
+                <table class="table" id="staffTable">
+                  <thead>
+                    <tr>
+                      <th>Staff ID</th>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Contract</th>
+                      <th>Std. Hours/Week</th>
+                      <th>Biometric</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="staffBody">
+                    <tr data-status="active" data-contract="Casual">
+                      <td class="staff-id">STF-001</td>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="admin-avatar"
+                            style="
+                              width: 32px;
+                              height: 32px;
+                              font-size: 0.72rem;
+                            "
+                          >
+                            SM
+                          </div>
+                          <div>
+                            <div class="fw-semibold">Sarah Miller</div>
+                            <div class="staff-email">s.miller@farm.local</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>Farm Hand</td>
+                      <td>
+                        <span class="badge-contract badge-casual">Casual</span>
+                      </td>
+                      <td>—</td>
+                      <td>
+                        <span class="bio-status registered"
+                          ><i class="bi bi-fingerprint"></i> Registered</span
+                        >
+                      </td>
+                      <td>
+                        <span class="badge-status badge-active">Active</span>
+                      </td>
+                      <td class="action-cell">
+                        <button
+                          class="icon-btn"
+                          title="View Profile"
+                          onclick="viewStaff(this)"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button
+                          class="icon-btn"
+                          title="Edit"
+                          onclick="editStaff(this)"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="icon-btn icon-btn-danger"
+                          title="Deactivate"
+                          onclick="toggleStatus(this)"
+                        >
+                          <i class="bi bi-person-x"></i>
+                        </button>
+                      </td>
+                    </tr>
+
+                    <tr data-status="active" data-contract="Full Time">
+                      <td class="staff-id">STF-002</td>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="admin-avatar"
+                            style="
+                              width: 32px;
+                              height: 32px;
+                              font-size: 0.72rem;
+                            "
+                          >
+                            JC
+                          </div>
+                          <div>
+                            <div class="fw-semibold">John Carter</div>
+                            <div class="staff-email">j.carter@farm.local</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>Senior Hand</td>
+                      <td>
+                        <span class="badge-contract badge-fulltime"
+                          >Full Time</span
+                        >
+                      </td>
+                      <td>38 hrs</td>
+                      <td>
+                        <span class="bio-status registered"
+                          ><i class="bi bi-fingerprint"></i> Registered</span
+                        >
+                      </td>
+                      <td>
+                        <span class="badge-status badge-active">Active</span>
+                      </td>
+                      <td class="action-cell">
+                        <button
+                          class="icon-btn"
+                          title="View Profile"
+                          onclick="viewStaff(this)"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button
+                          class="icon-btn"
+                          title="Edit"
+                          onclick="editStaff(this)"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="icon-btn icon-btn-danger"
+                          title="Deactivate"
+                          onclick="toggleStatus(this)"
+                        >
+                          <i class="bi bi-person-x"></i>
+                        </button>
+                      </td>
+                    </tr>
+
+                    <tr data-status="active" data-contract="Casual">
+                      <td class="staff-id">STF-003</td>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="admin-avatar"
+                            style="
+                              width: 32px;
+                              height: 32px;
+                              font-size: 0.72rem;
+                            "
+                          >
+                            EB
+                          </div>
+                          <div>
+                            <div class="fw-semibold">Emily Brown</div>
+                            <div class="staff-email">e.brown@farm.local</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>Farm Hand</td>
+                      <td>
+                        <span class="badge-contract badge-casual">Casual</span>
+                      </td>
+                      <td>—</td>
+                      <td>
+                        <span class="bio-status not-registered"
+                          ><i class="bi bi-exclamation-circle"></i> Not
+                          Registered</span
+                        >
+                      </td>
+                      <td>
+                        <span class="badge-status badge-active">Active</span>
+                      </td>
+                      <td class="action-cell">
+                        <button
+                          class="icon-btn"
+                          title="View Profile"
+                          onclick="viewStaff(this)"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button
+                          class="icon-btn"
+                          title="Edit"
+                          onclick="editStaff(this)"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="icon-btn icon-btn-danger"
+                          title="Deactivate"
+                          onclick="toggleStatus(this)"
+                        >
+                          <i class="bi bi-person-x"></i>
+                        </button>
+                      </td>
+                    </tr>
+
+                    <tr data-status="active" data-contract="Full Time">
+                      <td class="staff-id">STF-004</td>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="admin-avatar"
+                            style="
+                              width: 32px;
+                              height: 32px;
+                              font-size: 0.72rem;
+                            "
+                          >
+                            TN
+                          </div>
+                          <div>
+                            <div class="fw-semibold">Tom Nguyen</div>
+                            <div class="staff-email">t.nguyen@farm.local</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>Supervisor</td>
+                      <td>
+                        <span class="badge-contract badge-fulltime"
+                          >Full Time</span
+                        >
+                      </td>
+                      <td>38 hrs</td>
+                      <td>
+                        <span class="bio-status registered"
+                          ><i class="bi bi-fingerprint"></i> Registered</span
+                        >
+                      </td>
+                      <td>
+                        <span class="badge-status badge-active">Active</span>
+                      </td>
+                      <td class="action-cell">
+                        <button
+                          class="icon-btn"
+                          title="View Profile"
+                          onclick="viewStaff(this)"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button
+                          class="icon-btn"
+                          title="Edit"
+                          onclick="editStaff(this)"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="icon-btn icon-btn-danger"
+                          title="Deactivate"
+                          onclick="toggleStatus(this)"
+                        >
+                          <i class="bi bi-person-x"></i>
+                        </button>
+                      </td>
+                    </tr>
+
+                    <tr data-status="inactive" data-contract="Part Time">
+                      <td class="staff-id">STF-005</td>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="admin-avatar"
+                            style="
+                              width: 32px;
+                              height: 32px;
+                              font-size: 0.72rem;
+                              opacity: 0.5;
+                            "
+                          >
+                            LP
+                          </div>
+                          <div>
+                            <div class="fw-semibold" style="opacity: 0.5">
+                              Lisa Park
+                            </div>
+                            <div class="staff-email" style="opacity: 0.5">
+                              l.park@farm.local
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="opacity: 0.5">Farm Hand</td>
+                      <td>
+                        <span class="badge-contract badge-parttime"
+                          >Part Time</span
+                        >
+                      </td>
+                      <td style="opacity: 0.5">20 hrs</td>
+                      <td>
+                        <span class="bio-status registered" style="opacity: 0.5"
+                          ><i class="bi bi-fingerprint"></i> Registered</span
+                        >
+                      </td>
+                      <td>
+                        <span class="badge-status badge-inactive"
+                          >Inactive</span
+                        >
+                      </td>
+                      <td class="action-cell">
+                        <button
+                          class="icon-btn"
+                          title="View Profile"
+                          onclick="viewStaff(this)"
+                        >
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button
+                          class="icon-btn"
+                          title="Edit"
+                          onclick="editStaff(this)"
+                        >
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          class="icon-btn icon-btn-success"
+                          title="Reactivate"
+                          onclick="toggleStatus(this)"
+                        >
+                          <i class="bi bi-person-check"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div
+                class="mt-3 d-flex justify-content-between align-items-center"
+              >
+                <span style="font-size: 0.82rem; color: var(--text-muted)"
+                  >Showing 5 of 48 staff</span
+                >
+                <div class="d-flex gap-2 align-items-center">
+                  <button
+                    class="btn-outline-brand"
+                    style="padding: 0.3rem 0.8rem; font-size: 0.82rem"
+                  >
+                    ← Prev
+                  </button>
+                  <span style="font-size: 0.82rem; color: var(--text-muted)"
+                    >Page 1 of 10</span
+                  >
+                  <button
+                    class="btn-outline-brand"
+                    style="padding: 0.3rem 0.8rem; font-size: 0.82rem"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD / EDIT STAFF MODAL -->
+    <div
+      class="modal-overlay"
+      id="staffModal"
+      onclick="closeModalOutside(event)"
+    >
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">Add Staff Member</h2>
+          <button class="modal-close" onclick="closeModal()">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <form id="staffForm" onsubmit="saveStaff(event)">
+            <div class="form-row-2">
+              <div class="form-field">
+                <label>First Name <span class="required">*</span></label>
+                <input
+                  type="text"
+                  class="form-input"
+                  id="firstName"
+                  placeholder="e.g. Sarah"
+                  required
+                />
+              </div>
+              <div class="form-field">
+                <label>Last Name <span class="required">*</span></label>
+                <input
+                  type="text"
+                  class="form-input"
+                  id="lastName"
+                  placeholder="e.g. Miller"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-field">
+                <label>Staff ID <span class="required">*</span></label>
+                <input
+                  type="text"
+                  class="form-input"
+                  id="staffId"
+                  placeholder="e.g. STF-006"
+                  required
+                />
+              </div>
+              <div class="form-field">
+                <label>Email</label>
+                <input
+                  type="email"
+                  class="form-input"
+                  id="staffEmail"
+                  placeholder="e.g. name@farm.local"
+                />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-field">
+                <label>Role <span class="required">*</span></label>
+                <select class="form-input" id="staffRole" required>
+                  <option value="">Select role...</option>
+                  <option>Farm Hand</option>
+                  <option>Senior Hand</option>
+                  <option>Supervisor</option>
+                  <option>Admin</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Contract Type <span class="required">*</span></label>
+                <select
+                  class="form-input"
+                  id="contractType"
+                  required
+                  onchange="toggleHours()"
+                >
+                  <option value="">Select type...</option>
+                  <option>Full Time</option>
+                  <option>Part Time</option>
+                  <option>Casual</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row-2" id="hoursRow">
+              <div class="form-field">
+                <label>Standard Hours/Week</label>
+                <input
+                  type="number"
+                  class="form-input"
+                  id="stdHours"
+                  placeholder="e.g. 38"
+                  min="1"
+                  max="60"
+                />
+              </div>
+              <div class="form-field">
+                <label>Phone</label>
+                <input
+                  type="tel"
+                  class="form-input"
+                  id="staffPhone"
+                  placeholder="e.g. 0412 345 678"
+                />
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>Biometric / Card Registration</label>
+              <select class="form-input" id="bioType">
+                <option value="">Not Registered</option>
+                <option value="fingerprint">Fingerprint</option>
+                <option value="face">Face Recognition</option>
+                <option value="card">Card</option>
+                <option value="retinal">Retinal Scan</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label>Notes</label>
+              <textarea
+                class="form-input"
+                id="staffNotes"
+                rows="2"
+                placeholder="Any additional notes..."
+              ></textarea>
+            </div>
+
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn-outline-brand"
+                onclick="closeModal()"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn-brand">
+                <i class="bi bi-check-circle me-1"></i> Save Staff Member
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      function filterTable() {
+        const search = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const contract = document.getElementById("contractFilter").value;
+        const status = document.getElementById("statusFilter").value;
+        const rows = document.querySelectorAll("#staffBody tr");
+        let visible = 0;
+
+        rows.forEach((row) => {
+          const text = row.textContent.toLowerCase();
+          const rowCon = row.getAttribute("data-contract");
+          const rowStat = row.getAttribute("data-status");
+          const show =
+            (!search || text.includes(search)) &&
+            (!contract || rowCon === contract) &&
+            (!status || rowStat === status);
+          row.style.display = show ? "" : "none";
+          if (show) visible++;
+        });
+
+        document.getElementById("rowCount").textContent =
+          "Showing " + visible + " staff";
+      }
+
+      function openAddModal() {
+        document.getElementById("modalTitle").textContent = "Add Staff Member";
+        document.getElementById("staffForm").reset();
+        document.getElementById("staffModal").classList.add("open");
+      }
+
+      function editStaff(btn) {
+        document.getElementById("modalTitle").textContent = "Edit Staff Member";
+        document.getElementById("staffModal").classList.add("open");
+      }
+
+      function closeModal() {
+        document.getElementById("staffModal").classList.remove("open");
+      }
+
+      function closeModalOutside(e) {
+        if (e.target.id === "staffModal") closeModal();
+      }
+
+      function saveStaff(e) {
+        e.preventDefault();
+        alert("Staff member saved! (Connect to backend to persist data.)");
+        closeModal();
+      }
+
+      function toggleHours() {
+        const type = document.getElementById("contractType").value;
+        const row = document.getElementById("hoursRow");
+        row.style.display = type === "Casual" ? "none" : "";
+      }
+
+      function toggleStatus(btn) {
+        const row = btn.closest("tr");
+        const status = row.getAttribute("data-status");
+        if (status === "active") {
+          if (!confirm("Deactivate this staff member?")) return;
+          row.setAttribute("data-status", "inactive");
+          row.querySelector(".badge-status").className =
+            "badge-status badge-inactive";
+          row.querySelector(".badge-status").textContent = "Inactive";
+          btn.className = "icon-btn icon-btn-success";
+          btn.title = "Reactivate";
+          btn.innerHTML = '<i class=\"bi bi-person-check\"></i>';
+        } else {
+          row.setAttribute("data-status", "active");
+          row.querySelector(".badge-status").className =
+            "badge-status badge-active";
+          row.querySelector(".badge-status").textContent = "Active";
+          btn.className = "icon-btn icon-btn-danger";
+          btn.title = "Deactivate";
+          btn.innerHTML = '<i class=\"bi bi-person-x\"></i>';
+        }
+      }
+
+      function viewStaff(btn) {
+        const row = btn.closest("tr");
+        const name = row.querySelector(".fw-semibold").textContent;
+        alert(
+          "Viewing profile: " +
+            name +
+            "\\n(Connect to backend to load full profile.)",
+        );
+      }
+
+      function exportStaff() {
+        alert("Exporting staff list...");
+      }
+    </script>
+  </body>
+</html>
