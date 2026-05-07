@@ -1,9 +1,11 @@
 <?php
 // staff/index.php — Staff Management (List + Add + Edit + Delete)
-require_once '../includes/auth.php';
-require_once '../config/database.php';
-requireLogin();
-
+session_start();
+require_once 'config/database.php';
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: login.php');
+    exit();
+}
 $conn    = getConnection();
 $message = '';
 $msgType = '';
