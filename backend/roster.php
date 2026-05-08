@@ -131,10 +131,10 @@ $conn->close();
 <nav class="navbar">
     <div class="navbar-brand">⏱ Workforce Management</div>
     <div class="navbar-right">
-        <a href="../dashboard.php" class="btn-nav">🏠 Dashboard</a>
-        <a href="../staff/index.php" class="btn-nav">👥 Staff</a>
-        <a href="../attendance.php" class="btn-nav">⏱ Attendance</a>
-        <a href="../logout.php" class="btn-logout">🚪 Logout</a>
+        <a href="dashboard.php" class="btn-nav">🏠 Dashboard</a>
+        <a href="staff/index.php" class="btn-nav">👥 Staff</a>
+        <a href="attendance.php" class="btn-nav">⏱ Attendance</a>
+        <a href="logout.php" class="btn-logout">🚪 Logout</a>
     </div>
 </nav>
 
