@@ -3,314 +3,226 @@ session_start();
 require_once 'config/database.php';
 
 if (!isset($_SESSION['admin_id'])) {
-    header('Location: Login.php');
+    header('Location: login.php');
     exit();
 }
 
-$conn    = getConnection();
-$adminId = $_SESSION['admin_id'];
+$conn = getConnection();
 
-// Stats
-$stats = [
-    'staff'       => $conn->query("SELECT COUNT(*) AS c FROM staff WHERE status='active'")->fetch_assoc()['c'] ?? 0,
-    'today_att'   => $conn->query("SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE()")->fetch_assoc()['c'] ?? 0,
-    'clocked_in'  => $conn->query("SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE() AND clock_out IS NULL")->fetch_assoc()['c'] ?? 0,
-    'pending_leave'=> $conn->query("SELECT COUNT(*) AS c FROM leave_records WHERE status='pending'")->fetch_assoc()['c'] ?? 0,
-    'roster_today'=> $conn->query("SELECT COUNT(*) AS c FROM roster WHERE work_date=CURDATE()")->fetch_assoc()['c'] ?? 0,
-    'exceptions'  => $conn->query("SELECT COUNT(*) AS c FROM exceptions")->fetch_assoc()['c'] ?? 0,
-];
+// ── Real data from database ──────────────────────────────────
+$totalStaff    = $conn->query("SELECT COUNT(*) AS c FROM staff WHERE status='active'")->fetch_assoc()['c'] ?? 0;
+$rosteredToday = $conn->query("SELECT COUNT(*) AS c FROM roster WHERE work_date=CURDATE()")->fetch_assoc()['c'] ?? 0;
+$clockedIn     = $conn->query("SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE() AND clock_out IS NULL")->fetch_assoc()['c'] ?? 0;
+$exceptions    = $conn->query("SELECT COUNT(*) AS c FROM exceptions")->fetch_assoc()['c'] ?? 0;
 
-// Recent audit logs
-$logs = $conn->query("
-    SELECT l.action_type, l.target_table, l.reason, l.created_at, a.username
-    FROM audit_logs l
-    LEFT JOIN admin a ON l.admin_id = a.admin_id
-    ORDER BY l.created_at DESC LIMIT 8
-")->fetch_all(MYSQLI_ASSOC);
-
-// Today's attendance summary
+// Today's attendance
 $todayAtt = $conn->query("
-    SELECT CONCAT(s.first_name,' ',s.last_name) AS name, a.clock_in, a.clock_out, a.attendance_status
+    SELECT
+        CONCAT(s.first_name,' ',s.last_name) AS staff_name,
+        CONCAT(DATE_FORMAT(r.start_time,'%h:%i %p'),' - ',DATE_FORMAT(r.end_time,'%h:%i %p')) AS shift,
+        a.attendance_status,
+        DATE_FORMAT(a.clock_in,'%h:%i %p') AS clock_in_time
     FROM attendance a
     JOIN staff s ON a.staff_id = s.staff_id
+    LEFT JOIN roster r ON a.roster_id = r.roster_id
     WHERE DATE(a.clock_in) = CURDATE()
     ORDER BY a.clock_in DESC
-    LIMIT 5
+    LIMIT 10
 ")->fetch_all(MYSQLI_ASSOC);
 
 $conn->close();
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — Workforce Management</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Farm Time Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Segoe UI',sans-serif; background:#f0f2f5; display:flex; min-height:100vh; }
-
-        /* Sidebar */
-        .sidebar {
-            width: 240px;
-            background: #1a1a2e;
-            color: #fff;
-            min-height: 100vh;
-            position: fixed;
-            top: 0; left: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .sidebar-brand {
-            padding: 22px 20px;
-            font-size: 18px;
-            font-weight: 700;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .sidebar-brand span { font-size: 22px; }
-
-        .sidebar-user {
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            font-size: 13px;
-        }
-
-        .sidebar-user .username { font-weight: 600; font-size: 14px; }
-        .sidebar-user .role { color: #aaa; font-size: 12px; margin-top: 2px; }
-
-        .nav-section {
-            padding: 12px 20px 4px;
-            font-size: 10px;
-            font-weight: 700;
-            color: #555;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 11px 20px;
-            color: #ccc;
-            text-decoration: none;
-            font-size: 14px;
-            transition: background 0.2s, color 0.2s;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-item:hover  { background: rgba(255,255,255,0.08); color: #fff; }
-        .nav-item.active { background: rgba(79,70,229,0.2); color: #fff; border-left-color: #4f46e5; }
-
-        .nav-item .icon { width: 20px; text-align: center; font-size: 16px; }
-
-        .sidebar-footer {
-            margin-top: auto;
-            padding: 16px 20px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .btn-logout {
-            display: block;
-            text-align: center;
-            background: #dc2626;
-            color: #fff;
-            padding: 9px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        /* Main */
-        .main { margin-left: 240px; flex: 1; }
-
-        .topbar {
-            background: #fff;
-            padding: 0 28px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-
-        .topbar-title { font-size: 18px; font-weight: 700; color: #1a1a2e; }
-        .topbar-date  { font-size: 13px; color: #888; }
-
-        .content { padding: 24px 28px; }
-
-        /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-
-        .stat-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 20px 22px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            text-decoration: none;
-            color: inherit;
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-
-        .stat-icon { font-size: 30px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
-        .blue   { background: #eff6ff; }
-        .green  { background: #f0fdf4; }
-        .yellow { background: #fefce8; }
-        .red    { background: #fff5f5; }
-        .purple { background: #f5f3ff; }
-        .orange { background: #fff7ed; }
-
-        .stat-info h3 { font-size: 28px; font-weight: 700; color: #1a1a2e; }
-        .stat-info p  { font-size: 13px; color: #888; margin-top: 2px; }
-
-        /* Cards */
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
-        .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a2e; display: flex; align-items: center; justify-content: space-between; }
-        .card-body { padding: 0; }
-
-        .list-item { padding: 12px 20px; border-bottom: 1px solid #f5f5f5; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-        .list-item:last-child { border-bottom: none; }
-
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-        .badge-LOGIN   { background: #f0fdf4; color: #16a34a; }
-        .badge-LOGOUT  { background: #eff6ff; color: #2563eb; }
-        .badge-CREATE  { background: #f5f3ff; color: #7c3aed; }
-        .badge-UPDATE  { background: #fefce8; color: #d97706; }
-        .badge-DELETE  { background: #fff5f5; color: #dc2626; }
-        .badge-LOGIN_FAILED { background: #fff5f5; color: #dc2626; }
-
-        .att-present { color: #16a34a; }
-        .att-late    { color: #d97706; }
+        body { background-color: #f6f7fb; font-family: Arial, sans-serif; }
+        .sidebar { min-height: 100vh; background: #696c2b; color: white; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.85); border-radius: 8px; margin-bottom: 6px; }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active { background: rgba(255,255,255,0.15); color: #fff; }
+        .brand { font-size: 1.2rem; font-weight: 700; padding: 1.25rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.15); }
+        .topbar { background: white; border-bottom: 1px solid #e9ecef; }
+        .card-box { border: none; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .icon-box { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(105,108,43,0.12); color: #696c2b; font-size: 1.2rem; }
+        .section-title { font-size: 0.95rem; font-weight: 600; color: #6c757d; }
+        .quick-btn { min-width: 150px; }
+        .table td, .table th { vertical-align: middle; }
+        @media (max-width: 991.98px) { .sidebar { min-height: auto; } }
     </style>
 </head>
 <body>
+<div class="container-fluid">
+    <div class="row">
 
-<!-- Sidebar -->
-<div class="sidebar">
-    <div class="sidebar-brand"><span>⏱</span> Workforce</div>
-    <div class="sidebar-user">
-        <div class="username">👤 <?= htmlspecialchars($_SESSION['username']) ?></div>
-        <div class="role"><?= htmlspecialchars($_SESSION['permission_level']) ?> • <?= htmlspecialchars($_SESSION['site_name'] ?? '') ?></div>
-    </div>
+        <!-- Sidebar -->
+        <aside class="col-lg-2 col-md-3 sidebar p-3">
+            <div class="brand">Farm Time Admin</div>
+            <nav class="nav flex-column mt-4">
+                <a class="nav-link active" href="dashboard.php"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+                <a class="nav-link" href="staff.php"><i class="bi bi-people me-2"></i>Staff</a>
+                <a class="nav-link" href="roster.php"><i class="bi bi-calendar-week me-2"></i>Rosters</a>
+                <a class="nav-link" href="clockinout.php"><i class="bi bi-clock-history me-2"></i>Attendance</a>
+                <a class="nav-link" href="devices.php"><i class="bi bi-hdd-network me-2"></i>Clock Stations</a>
+                <a class="nav-link" href="exceptions.php"><i class="bi bi-exclamation-triangle me-2"></i>Exceptions</a>
+                <a class="nav-link" href="reports.php"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reports</a>
+                <a class="nav-link" href="payroll.php"><i class="bi bi-receipt me-2"></i>Payslips</a>
+                <a class="nav-link" href="settings.php"><i class="bi bi-gear me-2"></i>Settings</a>
+                <a class="nav-link mt-3" href="logout.php" style="color:rgba(255,100,100,0.9);">
+                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </a>
+            </nav>
+        </aside>
 
-    <div class="nav-section">Main</div>
-    <a href="dashboard.php" class="nav-item active"><span class="icon">🏠</span> Dashboard</a>
-    <a href="attendance.php" class="nav-item"><span class="icon">⏱</span> Attendance</a>
+        <!-- Main -->
+        <main class="col-lg-10 col-md-9 px-0">
 
-    <div class="nav-section">Management</div>
-    <a href="staff/index.php" class="nav-item"><span class="icon">👥</span> Staff</a>
-    <a href="contracts/index.php" class="nav-item"><span class="icon">📄</span> Contracts</a>
-    <a href="roster/index.php" class="nav-item"><span class="icon">📅</span> Roster</a>
-    <a href="leave/index.php" class="nav-item"><span class="icon">🏖️</span> Leave</a>
-
-    <div class="nav-section">Payroll</div>
-    <a href="payroll/index.php" class="nav-item"><span class="icon">💰</span> Payroll</a>
-
-    <div class="nav-section">System</div>
-    <a href="audit/index.php" class="nav-item"><span class="icon">🔍</span> Audit Logs</a>
-
-    <div class="sidebar-footer">
-        <a href="logout.php" class="btn-logout">🚪 Logout</a>
-    </div>
-</div>
-
-<!-- Main Content -->
-<div class="main">
-    <div class="topbar">
-        <div class="topbar-title">Dashboard</div>
-        <div class="topbar-date"><?= date('l, F j, Y') ?></div>
-    </div>
-
-    <div class="content">
-        <!-- Stats -->
-        <div class="stats-grid">
-            <a href="staff/index.php" class="stat-card">
-                <div class="stat-icon blue">👥</div>
-                <div class="stat-info"><h3><?= $stats['staff'] ?></h3><p>Active Staff</p></div>
-            </a>
-            <a href="attendance.php" class="stat-card">
-                <div class="stat-icon green">✅</div>
-                <div class="stat-info"><h3><?= $stats['today_att'] ?></h3><p>Today's Attendance</p></div>
-            </a>
-            <a href="attendance.php" class="stat-card">
-                <div class="stat-icon orange">🟢</div>
-                <div class="stat-info"><h3><?= $stats['clocked_in'] ?></h3><p>Currently Clocked In</p></div>
-            </a>
-            <a href="roster/index.php" class="stat-card">
-                <div class="stat-icon purple">📅</div>
-                <div class="stat-info"><h3><?= $stats['roster_today'] ?></h3><p>Shifts Today</p></div>
-            </a>
-            <a href="leave/index.php" class="stat-card">
-                <div class="stat-icon yellow">📋</div>
-                <div class="stat-info"><h3><?= $stats['pending_leave'] ?></h3><p>Pending Leave</p></div>
-            </a>
-            <a href="#" class="stat-card">
-                <div class="stat-icon red">⚠️</div>
-                <div class="stat-info"><h3><?= $stats['exceptions'] ?></h3><p>Exceptions</p></div>
-            </a>
-        </div>
-
-        <div class="grid-2">
-            <!-- Today's Attendance -->
-            <div class="card">
-                <div class="card-header">
-                    ⏱ Today's Attendance
-                    <a href="attendance.php" style="font-size:12px;color:#4f46e5;text-decoration:none;">View all →</a>
+            <!-- Topbar -->
+            <div class="topbar d-flex justify-content-between align-items-center px-4 py-3">
+                <div>
+                    <h4 class="mb-0">Admin Dashboard</h4>
+                    <small class="text-muted">Farm Time Management System</small>
                 </div>
-                <div class="card-body">
-                    <?php if (empty($todayAtt)): ?>
-                        <div style="text-align:center;padding:30px;color:#aaa;font-size:14px;">No attendance today yet.</div>
-                    <?php else: ?>
-                        <?php foreach ($todayAtt as $a): ?>
-                        <div class="list-item">
-                            <div>
-                                <strong><?= htmlspecialchars($a['name']) ?></strong><br>
-                                <span style="color:#888;font-size:12px;">
-                                    In: <?= date('h:i A', strtotime($a['clock_in'])) ?>
-                                    <?= $a['clock_out'] ? ' • Out: '.date('h:i A', strtotime($a['clock_out'])) : ' • <span style="color:#16a34a;">Still In</span>' ?>
-                                </span>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted"><?= date('d M Y') ?></span>
+                    <div class="fw-semibold"><?= htmlspecialchars($_SESSION['username']) ?></div>
+                </div>
+            </div>
+
+            <div class="p-4">
+
+                <!-- Stats Cards -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card card-box p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="section-title">Total Staff</div>
+                                    <h3 class="mb-0"><?= $totalStaff ?></h3>
+                                </div>
+                                <div class="icon-box"><i class="bi bi-people"></i></div>
                             </div>
-                            <span class="att-<?= $a['attendance_status'] ?>" style="font-size:12px;font-weight:600;">
-                                <?= ucfirst($a['attendance_status']) ?>
-                            </span>
                         </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="card">
-                <div class="card-header">
-                    🔍 Recent Activity
-                    <a href="audit/index.php" style="font-size:12px;color:#4f46e5;text-decoration:none;">View all →</a>
-                </div>
-                <div class="card-body">
-                    <?php foreach ($logs as $log): ?>
-                    <div class="list-item">
-                        <div>
-                            <span class="badge badge-<?= $log['action_type'] ?>"><?= $log['action_type'] ?></span>
-                            <span style="color:#555;margin-left:6px;font-size:12px;"><?= htmlspecialchars($log['target_table']) ?></span>
-                            <br>
-                            <span style="color:#888;font-size:11px;"><?= htmlspecialchars($log['username'] ?? '—') ?> • <?= date('H:i', strtotime($log['created_at'])) ?></span>
-                        </div>
-                        <span style="font-size:11px;color:#aaa;"><?= htmlspecialchars(substr($log['reason'] ?? '', 0, 30)) ?></span>
                     </div>
-                    <?php endforeach; ?>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card card-box p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="section-title">Rostered Today</div>
+                                    <h3 class="mb-0"><?= $rosteredToday ?></h3>
+                                </div>
+                                <div class="icon-box"><i class="bi bi-calendar-check"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card card-box p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="section-title">Clocked In</div>
+                                    <h3 class="mb-0"><?= $clockedIn ?></h3>
+                                </div>
+                                <div class="icon-box"><i class="bi bi-clock"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card card-box p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="section-title">Open Exceptions</div>
+                                    <h3 class="mb-0 text-danger"><?= $exceptions ?></h3>
+                                </div>
+                                <div class="icon-box"><i class="bi bi-exclamation-circle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row -->
+                <div class="row g-4">
+
+                    <!-- Attendance Table -->
+                    <div class="col-lg-8">
+                        <div class="card card-box p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">Today's Attendance</h5>
+                                <span class="badge text-bg-success">Live</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Staff Name</th>
+                                            <th>Shift</th>
+                                            <th>Status</th>
+                                            <th>Clock In</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($todayAtt)): ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-4">
+                                                    No attendance recorded today yet.
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($todayAtt as $a): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($a['staff_name']) ?></td>
+                                                <td><?= htmlspecialchars($a['shift'] ?? '—') ?></td>
+                                                <td>
+                                                    <?php
+                                                    $badgeClass = match($a['attendance_status']) {
+                                                        'present' => 'text-bg-success',
+                                                        'late'    => 'text-bg-warning',
+                                                        'absent'  => 'text-bg-danger',
+                                                        'partial' => 'text-bg-info',
+                                                        default   => 'text-bg-secondary'
+                                                    };
+                                                    $label = match($a['attendance_status']) {
+                                                        'present' => 'On Time',
+                                                        'late'    => 'Late',
+                                                        'absent'  => 'Missing',
+                                                        'partial' => 'Partial',
+                                                        default   => ucfirst($a['attendance_status'])
+                                                    };
+                                                    ?>
+                                                    <span class="badge <?= $badgeClass ?>"><?= $label ?></span>
+                                                </td>
+                                                <td><?= htmlspecialchars($a['clock_in_time']) ?></td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="col-lg-4">
+                        <div class="card card-box p-4 mb-4">
+                            <h5 class="mb-3">Quick Actions</h5>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="staff.php" class="btn btn-success quick-btn">Add Staff</a>
+                                <a href="roster.php" class="btn btn-outline-success quick-btn">Create Roster</a>
+                                <a href="clockinout.php" class="btn btn-outline-success quick-btn">Manual Clock</a>
+                                <a href="payroll.php" class="btn btn-outline-success quick-btn">Generate Report</a>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
