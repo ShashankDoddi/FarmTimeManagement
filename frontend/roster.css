@@ -1,0 +1,217 @@
+/* ═══════════════════════════════════
+   roster.css — Roster page styles
+   Works alongside adminStyle.css
+═══════════════════════════════════ */
+
+/* Week nav button */
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Card header bar */
+.card-header-bar {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  background: #fafaf7;
+}
+
+/* Roster week grid table */
+.roster-table {
+  table-layout: fixed;
+  min-width: 860px;
+}
+.roster-table th,
+.roster-table td {
+  padding: 0.5rem 0.4rem;
+  vertical-align: top;
+  font-size: 0.82rem;
+}
+.roster-table th {
+  background: #f8f9f5;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6c757d;
+  font-weight: 600;
+}
+.today-col {
+  background: #fafae8 !important;
+}
+.roster-table th.today-col {
+  background: #eef0d7 !important;
+  color: #696c2b;
+}
+.today-badge {
+  background: #696c2b;
+  color: #fff;
+  border-radius: 50px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+}
+
+/* Staff cell */
+.staff-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e8edc8;
+  color: #696c2b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.avatar-circle.sm {
+  width: 24px;
+  height: 24px;
+  font-size: 0.62rem;
+}
+
+/* Shift cell */
+.shift-cell {
+  min-width: 110px;
+}
+
+/* Shift pill */
+.shift-pill {
+  border-radius: 5px;
+  padding: 0.3rem 0.4rem;
+  margin-bottom: 3px;
+  font-size: 0.75rem;
+  position: relative;
+  cursor: default;
+}
+.shift-pill:hover .pill-actions {
+  opacity: 1;
+}
+.pill-confirmed {
+  background: #d4edda;
+  border-left: 3px solid #28a745;
+  color: #155724;
+}
+.pill-scheduled {
+  background: #e8edc8;
+  border-left: 3px solid #696c2b;
+  color: #3d3f18;
+}
+.pill-cancelled {
+  background: #fdecea;
+  border-left: 3px solid #dc3545;
+  color: #721c24;
+  opacity: 0.75;
+  text-decoration: line-through;
+}
+
+/* Pill hover actions */
+.pill-actions {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.pill-actions button {
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  color: #444;
+}
+.pill-actions button:hover {
+  color: #696c2b;
+}
+
+/* Empty cell add button */
+.add-cell {
+  border: 1px dashed #c8cba0;
+  border-radius: 5px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b0b38a;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.add-cell:hover {
+  border-color: #696c2b;
+  color: #696c2b;
+  background: #f3f4e8;
+}
+
+/* Role pill */
+.role-pill {
+  background: #e8edc8;
+  color: #696c2b;
+  border-radius: 50px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Icon buttons in list */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  background: #f3f4e8;
+  color: #696c2b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+}
+.icon-btn:hover {
+  background: #e8edc8;
+}
+.icon-btn.danger {
+  background: #fdecea;
+  color: #c0392b;
+}
+.icon-btn.danger:hover {
+  background: #f8d7da;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .d-flex.gap-2.flex-wrap {
+    gap: 0.4rem !important;
+  }
+}
+@media (max-width: 575.98px) {
+  .roster-table th,
+  .roster-table td {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.25rem;
+  }
+}
