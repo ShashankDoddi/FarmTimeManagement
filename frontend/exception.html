@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exceptions — Farm Time Management System</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="adminStyle.css" />
+    <link rel="stylesheet" href="exceptions.css" />
+  </head>
+  <body>
+    <div class="dashboard-wrapper">
+      <!-- ═══ SIDEBAR ═══ -->
+      <aside class="sidebar">
+        <div class="brand">
+          <i class="bi bi-clock-history me-2"></i>Farm TMS
+        </div>
+
+        <nav class="nav flex-column">
+          <span class="nav-section-label">Main</span>
+          <a href="adminDashboard.html" class="nav-link">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a href="roster.html" class="nav-link">
+            <i class="bi bi-calendar3"></i> Roster
+          </a>
+          <a href="attendance.html" class="nav-link">
+            <i class="bi bi-clock"></i> Timesheets
+          </a>
+          <a href="exceptions.html" class="nav-link">
+            <i class="bi bi-exclamation-circle"></i> Exceptions
+          </a>
+
+          <span class="nav-section-label">People</span>
+          <a href="staff.html" class="nav-link">
+            <i class="bi bi-people"></i> Staff
+          </a>
+          <a href="roles.html" class="nav-link">
+            <i class="bi bi-person-badge"></i> Roles
+          </a>
+
+          <span class="nav-section-label">System</span>
+          <a href="reports.html" class="nav-link">
+            <i class="bi bi-bar-chart-line"></i> Reports
+          </a>
+          <a href="payslip.html" class="nav-link">
+            <i class="bi bi-receipt"></i> Payslips
+          </a>
+          <a href="settings.html" class="nav-link">
+            <i class="bi bi-gear"></i> Settings
+          </a>
+        </nav>
+      </aside>
+
+      <!-- ═══ MAIN ═══ -->
+      <div class="main-content">
+        <!-- TOPBAR -->
+        <div class="topbar">
+          <div>
+            <div class="topbar-title">Exceptions</div>
+            <div class="topbar-sub">Farm Time Management System</div>
+          </div>
+          <div class="topbar-right">
+            <span class="topbar-date" id="topbarDate"></span>
+            <span class="topbar-user"
+              ><i class="bi bi-person-circle me-1"></i>Admin User</span
+            >
+          </div>
+        </div>
+
+        <!-- PAGE BODY -->
+        <div class="page-body">
+          <!-- ── SUMMARY CARDS ── -->
+          <div class="stats-row mb-4">
+            <div class="stat-card">
+              <div>
+                <div class="stat-label">Open Exceptions</div>
+                <div class="stat-value" id="statOpen" style="color: #dc3545">
+                  0
+                </div>
+              </div>
+              <div class="icon-box" style="background: #fdecea; color: #c0392b">
+                <i class="bi bi-exclamation-triangle"></i>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div>
+                <div class="stat-label">Currently Clocked In</div>
+                <div class="stat-value" id="statClockedIn">0</div>
+              </div>
+              <div class="icon-box" style="background: #d4edda; color: #28a745">
+                <i class="bi bi-person-check"></i>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div>
+                <div class="stat-label">Resolved Today</div>
+                <div class="stat-value" id="statResolved">0</div>
+              </div>
+              <div class="icon-box" style="background: #e8edc8; color: #696c2b">
+                <i class="bi bi-check-circle"></i>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div>
+                <div class="stat-label">Total Logged</div>
+                <div class="stat-value" id="statTotal">0</div>
+              </div>
+              <div class="icon-box" style="background: #d4e6f1; color: #1a6b9a">
+                <i class="bi bi-journal-text"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── MANUAL CLOCK OUT SECTION ── -->
+          <div class="card mb-4">
+            <div class="card-header-bar">
+              <span class="section-title"
+                ><i class="bi bi-clock-history me-2"></i>Manual Early
+                Clock-Out</span
+              >
+              <p
+                class="text-muted mb-0"
+                style="font-size: 0.82rem; margin-top: 0.25rem"
+              >
+                Search for a currently clocked-in employee and clock them out
+                early with a reason.
+              </p>
+            </div>
+            <div class="card-body">
+              <!-- Search -->
+              <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-6">
+                  <label class="form-label-sm"
+                    >Search Staff (Name or Staff #)</label
+                  >
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"
+                      ><i class="bi bi-search"></i
+                    ></span>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="searchStaff"
+                      placeholder="e.g. Sarah Miller or FT-001"
+                    />
+                  </div>
+                </div>
+                <div class="col-md-2">
+                  <button class="btn-brand w-100" onclick="searchEmployee()">
+                    <i class="bi bi-search"></i> Search
+                  </button>
+                </div>
+              </div>
+
+              <!-- Search error -->
+              <div
+                class="alert alert-warning py-2 small"
+                id="searchError"
+                style="display: none"
+              >
+                <i class="bi bi-exclamation-circle me-1"></i>
+                <span id="searchErrorMsg">No clocked-in employee found.</span>
+              </div>
+
+              <!-- Employee result card -->
+              <div id="employeeResult" style="display: none">
+                <div class="emp-result-card">
+                  <div class="emp-result-info">
+                    <div class="staff-avatar-lg" id="empInitials"></div>
+                    <div>
+                      <div class="fw-bold" id="empName"></div>
+                      <div
+                        class="text-muted"
+                        style="font-size: 0.82rem"
+                        id="empRole"
+                      ></div>
+                      <div
+                        class="text-muted"
+                        style="font-size: 0.8rem"
+                        id="empStaffNo"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="emp-result-shift">
+                    <div class="shift-info-item">
+                      <span class="shift-info-label">Rostered Shift</span>
+                      <span class="fw-semibold" id="empShift"></span>
+                    </div>
+                    <div class="shift-info-item">
+                      <span class="shift-info-label">Clocked In At</span>
+                      <span
+                        class="fw-semibold text-success"
+                        id="empClockIn"
+                      ></span>
+                    </div>
+                    <div class="shift-info-item">
+                      <span class="shift-info-label">Location</span>
+                      <span id="empLocation"></span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Clock-out form -->
+                <div class="row g-3 mt-1">
+                  <div class="col-md-4">
+                    <label class="form-label-sm"
+                      >Clock-Out Time <span class="text-danger">*</span></label
+                    >
+                    <input
+                      type="time"
+                      class="form-control form-control-sm"
+                      id="f_clockout"
+                    />
+                    <div
+                      class="text-danger small mt-1"
+                      id="err_clockout"
+                      style="display: none"
+                    >
+                      Required.
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label-sm"
+                      >Reason <span class="text-danger">*</span></label
+                    >
+                    <select class="form-select form-select-sm" id="f_reason">
+                      <option value="">Select reason…</option>
+                      <option>Medical / Illness</option>
+                      <option>Family Emergency</option>
+                      <option>Personal Reason</option>
+                      <option>Work Completed Early</option>
+                      <option>Weather Conditions</option>
+                      <option>Disciplinary Action</option>
+                      <option>Other</option>
+                    </select>
+                    <div
+                      class="text-danger small mt-1"
+                      id="err_reason"
+                      style="display: none"
+                    >
+                      Please select a reason.
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label-sm">Authorised By</label>
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      id="f_authorised"
+                      value="Admin User"
+                      readonly
+                    />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label-sm">Notes</label>
+                    <textarea
+                      class="form-control form-control-sm"
+                      id="f_notes"
+                      rows="2"
+                      placeholder="Optional additional notes…"
+                    ></textarea>
+                  </div>
+                  <div class="col-12 d-flex gap-2">
+                    <button class="btn-brand" onclick="submitClockOut()">
+                      <i class="bi bi-box-arrow-right"></i> Confirm Clock-Out
+                    </button>
+                    <button class="btn-outline-brand" onclick="clearSearch()">
+                      <i class="bi bi-x-lg"></i> Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── CURRENTLY CLOCKED IN TABLE ── -->
+          <div class="card mb-4">
+            <div
+              class="card-header-bar d-flex justify-content-between align-items-center"
+            >
+              <span class="section-title"
+                ><i class="bi bi-people-fill me-2"></i>Currently Clocked
+                In</span
+              >
+              <span class="badge bg-success" id="clockedInCount">0 staff</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Staff</th>
+                    <th>Role</th>
+                    <th>Rostered Shift</th>
+                    <th>Clocked In</th>
+                    <th>Duration</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="clockedInBody"></tbody>
+              </table>
+              <div
+                id="clockedInEmpty"
+                class="empty-state"
+                style="display: none"
+              >
+                <i
+                  class="bi bi-people"
+                  style="
+                    font-size: 2rem;
+                    color: #ccc;
+                    display: block;
+                    margin-bottom: 0.5rem;
+                  "
+                ></i>
+                <p class="text-muted">No staff currently clocked in.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── EXCEPTION LOG TABLE ── -->
+          <div class="card">
+            <div
+              class="card-header-bar d-flex justify-content-between align-items-center flex-wrap gap-2"
+            >
+              <span class="section-title"
+                ><i class="bi bi-journal-text me-2"></i>Exception Log</span
+              >
+              <div class="d-flex gap-2 align-items-center flex-wrap">
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  id="logSearch"
+                  placeholder="Search staff…"
+                  style="max-width: 180px"
+                  oninput="renderLog()"
+                />
+                <select
+                  class="form-select form-select-sm"
+                  id="logFilter"
+                  style="max-width: 160px"
+                  onchange="renderLog()"
+                >
+                  <option value="">All Types</option>
+                  <option value="Early Clock-Out">Early Clock-Out</option>
+                  <option value="No Clock-Out">No Clock-Out</option>
+                  <option value="Unrostered">Unrostered</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Staff</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Rostered End</th>
+                    <th>Actual Clock-Out</th>
+                    <th>Reason</th>
+                    <th>Authorised By</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="logBody"></tbody>
+              </table>
+              <div id="logEmpty" class="empty-state" style="display: none">
+                <i
+                  class="bi bi-journal-x"
+                  style="
+                    font-size: 2rem;
+                    color: #ccc;
+                    display: block;
+                    margin-bottom: 0.5rem;
+                  "
+                ></i>
+                <p class="text-muted">No exceptions logged yet.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUCCESS TOAST -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div
+        id="liveToast"
+        class="toast text-white border-0 bg-success"
+        role="alert"
+      >
+        <div class="d-flex">
+          <div class="toast-body" id="toastMsg"></div>
+          <button
+            type="button"
+            class="btn-close btn-close-white me-2 m-auto"
+            data-bs-dismiss="toast"
+          ></button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ══════════════════════════════════════
+      //  SAMPLE DATA
+      // ══════════════════════════════════════
+      const STAFF = [
+        { id: 1, staffNo: "FT-001", name: "Sarah Miller", role: "Supervisor" },
+        { id: 2, staffNo: "FT-002", name: "John Carter", role: "Farm Hand" },
+        { id: 3, staffNo: "FT-003", name: "Emily Brown", role: "Farm Hand" },
+        { id: 4, staffNo: "FT-004", name: "Michael Green", role: "Manager" },
+        { id: 5, staffNo: "FT-005", name: "Lisa Wong", role: "Supervisor" },
+        { id: 6, staffNo: "FT-006", name: "David Pham", role: "Farm Hand" },
+        { id: 7, staffNo: "FT-007", name: "Priya Sharma", role: "Supervisor" },
+      ];
+
+      // Currently clocked-in employees
+      let clockedIn = [
+        {
+          staffId: 1,
+          clockInTime: "07:56",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          location: "Main Farm",
+        },
+        {
+          staffId: 2,
+          clockInTime: "09:11",
+          shiftStart: "09:00",
+          shiftEnd: "17:00",
+          location: "Orchard A",
+        },
+        {
+          staffId: 5,
+          clockInTime: "07:02",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          location: "Packing Shed",
+        },
+        {
+          staffId: 7,
+          clockInTime: "08:05",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          location: "Orchard B",
+        },
+      ];
+
+      // Exception log
+      let exceptionLog = [
+        {
+          staffId: 3,
+          date: "2026-05-08",
+          type: "Early Clock-Out",
+          shiftEnd: "16:00",
+          actualOut: "13:30",
+          reason: "Medical / Illness",
+          authorised: "Admin User",
+          notes: "Felt unwell, approved by supervisor",
+        },
+        {
+          staffId: 6,
+          date: "2026-05-07",
+          type: "No Clock-Out",
+          shiftEnd: "14:00",
+          actualOut: "—",
+          reason: "No Clock-Out Logged",
+          authorised: "Admin User",
+          notes: "Station offline",
+        },
+        {
+          staffId: 2,
+          date: "2026-05-06",
+          type: "Unrostered",
+          shiftEnd: "—",
+          actualOut: "17:00",
+          reason: "Unrostered Clock-In",
+          authorised: "Admin User",
+          notes: "Came in on day off",
+        },
+      ];
+
+      let selectedEmployee = null; // currently matched clocked-in record
+
+      // ══════════════════════════════════════
+      //  HELPERS
+      // ══════════════════════════════════════
+      function staffById(id) {
+        return (
+          STAFF.find((s) => s.id === id) || { name: "?", role: "", staffNo: "" }
+        );
+      }
+      function initials(name) {
+        return name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase();
+      }
+      function nowTime() {
+        const d = new Date();
+        return (
+          d.getHours().toString().padStart(2, "0") +
+          ":" +
+          d.getMinutes().toString().padStart(2, "0")
+        );
+      }
+      function duration(clockIn) {
+        const [ch, cm] = clockIn.split(":").map(Number);
+        const now = new Date();
+        const total = now.getHours() * 60 + now.getMinutes() - (ch * 60 + cm);
+        if (total < 0) return "—";
+        const h = Math.floor(total / 60),
+          m = total % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+      function clockStatus(ci, shiftStart) {
+        const [ch, cm] = ci.split(":").map(Number);
+        const [sh, sm] = shiftStart.split(":").map(Number);
+        const diff = ch * 60 + cm - (sh * 60 + sm);
+        if (diff <= 5)
+          return '<span class="badge-status badge-on-time">On Time</span>';
+        return `<span class="badge-status badge-late">Late ${diff}m</span>`;
+      }
+
+      // ══════════════════════════════════════
+      //  STATS
+      // ══════════════════════════════════════
+      function updateStats() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        document.getElementById("statOpen").textContent = exceptionLog.filter(
+          (e) => e.type === "Early Clock-Out" || e.type === "No Clock-Out",
+        ).length;
+        document.getElementById("statClockedIn").textContent = clockedIn.length;
+        document.getElementById("statResolved").textContent =
+          exceptionLog.filter((e) => e.date === todayStr).length;
+        document.getElementById("statTotal").textContent = exceptionLog.length;
+      }
+
+      // ══════════════════════════════════════
+      //  CLOCKED IN TABLE
+      // ══════════════════════════════════════
+      function renderClockedIn() {
+        const tbody = document.getElementById("clockedInBody");
+        const empty = document.getElementById("clockedInEmpty");
+        const count = document.getElementById("clockedInCount");
+        count.textContent = clockedIn.length + " staff";
+        if (clockedIn.length === 0) {
+          tbody.innerHTML = "";
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+        tbody.innerHTML = clockedIn
+          .map((ci) => {
+            const st = staffById(ci.staffId);
+            return `<tr>
+      <td><div class="staff-cell-sm">
+        <div class="avatar-sm">${initials(st.name)}</div>${st.name}
+      </div></td>
+      <td><span class="role-pill">${st.role}</span></td>
+      <td>${ci.shiftStart} – ${ci.shiftEnd}</td>
+      <td class="text-success fw-semibold">${ci.clockInTime}</td>
+      <td>${duration(ci.clockInTime)}</td>
+      <td>${ci.location}</td>
+      <td>${clockStatus(ci.clockInTime, ci.shiftStart)}</td>
+      <td class="text-end">
+        <button class="btn-brand-sm" onclick="prefillClockOut(${ci.staffId})">
+          <i class="bi bi-box-arrow-right"></i> Clock Out
+        </button>
+      </td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      // ══════════════════════════════════════
+      //  EXCEPTION LOG
+      // ══════════════════════════════════════
+      function renderLog() {
+        const q = document.getElementById("logSearch").value.toLowerCase();
+        const f = document.getElementById("logFilter").value;
+        const tbody = document.getElementById("logBody");
+        const empty = document.getElementById("logEmpty");
+        const filtered = [...exceptionLog].reverse().filter((e) => {
+          const st = staffById(e.staffId);
+          return (
+            (!q || st.name.toLowerCase().includes(q)) && (!f || e.type === f)
+          );
+        });
+        if (filtered.length === 0) {
+          tbody.innerHTML = "";
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+        tbody.innerHTML = filtered
+          .map((e) => {
+            const st = staffById(e.staffId);
+            const cls =
+              e.type === "Early Clock-Out"
+                ? "badge-missing"
+                : e.type === "No Clock-Out"
+                  ? "badge-late"
+                  : "badge-absent";
+            return `<tr>
+      <td><div class="staff-cell-sm">
+        <div class="avatar-sm">${initials(st.name)}</div>${st.name}
+      </div></td>
+      <td>${new Date(e.date + "T00:00").toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td><span class="badge-status ${cls}">${e.type}</span></td>
+      <td>${e.shiftEnd}</td>
+      <td>${e.actualOut}</td>
+      <td>${e.reason}</td>
+      <td>${e.authorised}</td>
+      <td class="text-muted" style="font-size:.8rem">${e.notes || "—"}</td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      // ══════════════════════════════════════
+      //  SEARCH EMPLOYEE
+      // ══════════════════════════════════════
+      function searchEmployee() {
+        const q = document
+          .getElementById("searchStaff")
+          .value.trim()
+          .toLowerCase();
+        document.getElementById("searchError").style.display = "none";
+        document.getElementById("employeeResult").style.display = "none";
+        if (!q) {
+          showError("Please enter a staff name or staff number.");
+          return;
+        }
+        // Find staff
+        const st = STAFF.find(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.staffNo.toLowerCase().includes(q),
+        );
+        if (!st) {
+          showError("Staff member not found.");
+          return;
+        }
+        // Check if clocked in
+        const ci = clockedIn.find((c) => c.staffId === st.id);
+        if (!ci) {
+          showError(`${st.name} is not currently clocked in.`);
+          return;
+        }
+        // Show result
+        selectedEmployee = { ...st, ...ci };
+        document.getElementById("empInitials").textContent = initials(st.name);
+        document.getElementById("empName").textContent = st.name;
+        document.getElementById("empRole").textContent = st.role;
+        document.getElementById("empStaffNo").textContent = st.staffNo;
+        document.getElementById("empShift").textContent =
+          ci.shiftStart + " – " + ci.shiftEnd;
+        document.getElementById("empClockIn").textContent = ci.clockInTime;
+        document.getElementById("empLocation").textContent = ci.location;
+        document.getElementById("f_clockout").value = nowTime();
+        document.getElementById("f_reason").value = "";
+        document.getElementById("f_notes").value = "";
+        clearFormErrors();
+        document.getElementById("employeeResult").style.display = "block";
+      }
+
+      function prefillClockOut(staffId) {
+        const st = staffById(staffId);
+        document.getElementById("searchStaff").value = st.name;
+        searchEmployee();
+        document
+          .querySelector(".card-body")
+          .scrollIntoView({ behavior: "smooth" });
+      }
+
+      function showError(msg) {
+        document.getElementById("searchErrorMsg").textContent = msg;
+        document.getElementById("searchError").style.display = "block";
+      }
+
+      function clearSearch() {
+        document.getElementById("searchStaff").value = "";
+        document.getElementById("searchError").style.display = "none";
+        document.getElementById("employeeResult").style.display = "none";
+        selectedEmployee = null;
+      }
+
+      // ══════════════════════════════════════
+      //  VALIDATION
+      // ══════════════════════════════════════
+      function clearFormErrors() {
+        ["clockout", "reason"].forEach(
+          (f) => (document.getElementById("err_" + f).style.display = "none"),
+        );
+      }
+      function validateForm() {
+        clearFormErrors();
+        let ok = true;
+        if (!document.getElementById("f_clockout").value) {
+          document.getElementById("err_clockout").style.display = "block";
+          ok = false;
+        }
+        if (!document.getElementById("f_reason").value) {
+          document.getElementById("err_reason").style.display = "block";
+          ok = false;
+        }
+        return ok;
+      }
+
+      // ══════════════════════════════════════
+      //  SUBMIT CLOCK OUT
+      // ══════════════════════════════════════
+      function submitClockOut() {
+        if (!selectedEmployee) return;
+        if (!validateForm()) return;
+
+        const clockout = document.getElementById("f_clockout").value;
+        const reason = document.getElementById("f_reason").value;
+        const notes = document.getElementById("f_notes").value.trim();
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Log the exception
+        exceptionLog.push({
+          staffId: selectedEmployee.id,
+          date: today,
+          type: "Early Clock-Out",
+          shiftEnd: selectedEmployee.shiftEnd,
+          actualOut: clockout,
+          reason,
+          authorised: "Admin User",
+          notes,
+        });
+
+        // Remove from clocked-in list
+        clockedIn = clockedIn.filter((c) => c.staffId !== selectedEmployee.id);
+
+        clearSearch();
+        renderAll();
+        showToast(`${selectedEmployee.name} clocked out at ${clockout}.`);
+      }
+
+      // ══════════════════════════════════════
+      //  TOAST
+      // ══════════════════════════════════════
+      function showToast(msg) {
+        document.getElementById("toastMsg").textContent = msg;
+        new bootstrap.Toast(document.getElementById("liveToast"), {
+          delay: 3500,
+        }).show();
+      }
+
+      // ══════════════════════════════════════
+      //  RENDER ALL
+      // ══════════════════════════════════════
+      function renderAll() {
+        updateStats();
+        renderClockedIn();
+        renderLog();
+      }
+
+      // ── INIT ──
+      document.getElementById("topbarDate").textContent =
+        new Date().toLocaleDateString("en-AU", {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      renderAll();
+    </script>
+  </body>
+</html>
