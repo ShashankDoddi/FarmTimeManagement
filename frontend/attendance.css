@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════
+   attendance.css
+   Works alongside adminStyle.css
+═══════════════════════════════════ */
+
+/* Filter bar */
+.att-filter-bar {
+  background: #fafaf7;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+/* Small label above inputs */
+.att-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.2rem;
+  display: block;
+}
+
+/* Card header */
+.att-card-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  background: #fafaf7;
+}
+
+/* Table */
+.att-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c757d;
+  font-weight: 600;
+  background: #f8f9f5;
+}
+.att-table td {
+  vertical-align: middle;
+}
+
+/* Staff cell */
+.staff-cell-sm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e8edc8;
+  color: #696c2b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Role pill */
+.role-pill {
+  background: #e8edc8;
+  color: #696c2b;
+  border-radius: 50px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Clocked-out badge */
+.badge-clocked-out {
+  background: #d4e6f1;
+  color: #1a6b9a;
+  padding: 3px 8px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Edit icon button */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  background: #f3f4e8;
+  color: #696c2b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+}
+.icon-btn:hover {
+  background: #e8edc8;
+}
+
+/* Employee info bar inside modal */
+.emp-info-bar {
+  background: #f3f4e8;
+  border: 1px solid #c8cba0;
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+/* Responsive */
+@media (max-width: 767.98px) {
+  .att-filter-bar .d-flex {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .att-filter-bar input,
+  .att-filter-bar select {
+    max-width: 100% !important;
+  }
+}
+@media (max-width: 575.98px) {
+  .att-table th,
+  .att-table td {
+    font-size: 0.75rem;
+  }
+}
