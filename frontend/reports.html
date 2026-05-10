@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports — Farm Time Management System</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="adminStyle.css" />
+    <link rel="stylesheet" href="reports.css" />
+  </head>
+  <body>
+    <div class="dashboard-wrapper">
+      <!-- ═══ SIDEBAR ═══ -->
+      <aside class="sidebar">
+        <div class="brand">
+          <i class="bi bi-clock-history me-2"></i>Farm TMS
+        </div>
+        <nav class="nav flex-column">
+          <span class="nav-section-label">Main</span>
+          <a href="adminDashboard.html" class="nav-link"
+            ><i class="bi bi-speedometer2"></i> Dashboard</a
+          >
+          <a href="roster.html" class="nav-link"
+            ><i class="bi bi-calendar3"></i> Roster</a
+          >
+          <a href="attendance.html" class="nav-link"
+            ><i class="bi bi-clock"></i> Timesheets</a
+          >
+          <a href="exceptions.html" class="nav-link"
+            ><i class="bi bi-exclamation-circle"></i> Exceptions</a
+          >
+          <span class="nav-section-label">People</span>
+          <a href="staff.html" class="nav-link"
+            ><i class="bi bi-people"></i> Staff</a
+          >
+          <a href="roles.html" class="nav-link"
+            ><i class="bi bi-person-badge"></i> Roles</a
+          >
+          <span class="nav-section-label">System</span>
+          <a href="reports.html" class="nav-link active"
+            ><i class="bi bi-bar-chart-line"></i> Reports</a
+          >
+          <a href="payslip.html" class="nav-link"
+            ><i class="bi bi-receipt"></i> Payslips</a
+          >
+          <a href="settings.html" class="nav-link"
+            ><i class="bi bi-gear"></i> Settings</a
+          >
+        </nav>
+      </aside>
+
+      <!-- ═══ MAIN ═══ -->
+      <div class="main-content">
+        <!-- TOPBAR -->
+        <header class="topbar">
+          <span class="page-title">Reports</span>
+          <div class="topbar-right">
+            <span class="topbar-date">
+              <i class="bi bi-calendar3 me-1"></i>
+              <span id="topbarDate"></span>
+            </span>
+            <div class="admin-badge">
+              <div class="admin-avatar">AU</div>
+              Admin User
+            </div>
+          </div>
+        </header>
+
+        <!-- PAGE BODY -->
+        <div class="page-body">
+          <!-- ── FILTERS ── -->
+          <div class="report-filter-bar mb-4">
+            <div class="d-flex gap-3 flex-wrap align-items-end">
+              <div>
+                <label class="rpt-label">Report Type</label>
+                <select
+                  class="form-select form-select-sm"
+                  id="reportType"
+                  onchange="renderReport()"
+                  style="min-width: 200px"
+                >
+                  <option value="hours">Hours Worked</option>
+                  <option value="attendance">Attendance Summary</option>
+                  <option value="exceptions">Exceptions Summary</option>
+                  <option value="payroll">Payroll Summary</option>
+                </select>
+              </div>
+              <div>
+                <label class="rpt-label">Pay Period</label>
+                <select
+                  class="form-select form-select-sm"
+                  id="payPeriod"
+                  onchange="renderReport()"
+                  style="min-width: 200px"
+                ></select>
+              </div>
+              <div>
+                <label class="rpt-label">Role</label>
+                <select
+                  class="form-select form-select-sm"
+                  id="filterRole"
+                  onchange="renderReport()"
+                  style="min-width: 140px"
+                >
+                  <option value="">All Roles</option>
+                  <option>Farm Hand</option>
+                  <option>Supervisor</option>
+                  <option>Manager</option>
+                </select>
+              </div>
+              <button
+                class="btn-outline-brand"
+                style="align-self: flex-end"
+                onclick="printReport()"
+              >
+                <i class="bi bi-printer"></i> Print
+              </button>
+            </div>
+          </div>
+
+          <!-- ── SUMMARY CARDS ── -->
+          <div class="stats-row mb-4" id="summaryCards"></div>
+
+          <!-- ── REPORT TABLE ── -->
+          <div class="card" id="reportCard">
+            <div
+              class="rpt-card-header d-flex justify-content-between align-items-center"
+            >
+              <span class="section-title" id="reportTitle"
+                >Hours Worked Report</span
+              >
+              <span
+                class="text-muted"
+                style="font-size: 0.82rem"
+                id="reportSubtitle"
+              ></span>
+            </div>
+            <div class="table-responsive">
+              <table class="table rpt-table">
+                <thead id="reportHead"></thead>
+                <tbody id="reportBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <!-- end page-body -->
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ══════════════════════════════════════
+      //  DATA
+      // ══════════════════════════════════════
+      const STAFF = [
+        {
+          id: 1,
+          staffNo: "FT-001",
+          name: "Sarah Miller",
+          role: "Supervisor",
+          payRate: 28.5,
+        },
+        {
+          id: 2,
+          staffNo: "FT-002",
+          name: "John Carter",
+          role: "Farm Hand",
+          payRate: 23.0,
+        },
+        {
+          id: 3,
+          staffNo: "FT-003",
+          name: "Emily Brown",
+          role: "Farm Hand",
+          payRate: 23.0,
+        },
+        {
+          id: 4,
+          staffNo: "FT-004",
+          name: "Michael Green",
+          role: "Manager",
+          payRate: 35.0,
+        },
+        {
+          id: 5,
+          staffNo: "FT-005",
+          name: "Lisa Wong",
+          role: "Supervisor",
+          payRate: 28.5,
+        },
+        {
+          id: 6,
+          staffNo: "FT-006",
+          name: "David Pham",
+          role: "Farm Hand",
+          payRate: 23.0,
+        },
+        {
+          id: 7,
+          staffNo: "FT-007",
+          name: "Priya Sharma",
+          role: "Supervisor",
+          payRate: 28.5,
+        },
+        {
+          id: 8,
+          staffNo: "FT-008",
+          name: "Tom Nguyen",
+          role: "Farm Hand",
+          payRate: 23.0,
+        },
+      ];
+
+      // Simulated timesheet data (2 fortnights)
+      const RECORDS = [
+        // Fortnight 1: 28 Apr – 11 May 2026
+        {
+          staffId: 1,
+          date: "2026-04-28",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "07:56",
+          clockOut: "16:02",
+          exception: null,
+        },
+        {
+          staffId: 1,
+          date: "2026-04-29",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:01",
+          clockOut: "16:00",
+          exception: null,
+        },
+        {
+          staffId: 1,
+          date: "2026-04-30",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:10",
+          clockOut: "16:05",
+          exception: "Late",
+        },
+        {
+          staffId: 2,
+          date: "2026-04-28",
+          shiftStart: "09:00",
+          shiftEnd: "17:00",
+          clockIn: "09:00",
+          clockOut: "17:00",
+          exception: null,
+        },
+        {
+          staffId: 2,
+          date: "2026-04-29",
+          shiftStart: "09:00",
+          shiftEnd: "17:00",
+          clockIn: null,
+          clockOut: null,
+          exception: "Missing",
+        },
+        {
+          staffId: 2,
+          date: "2026-04-30",
+          shiftStart: "09:00",
+          shiftEnd: "17:00",
+          clockIn: "09:15",
+          clockOut: "17:00",
+          exception: "Late",
+        },
+        {
+          staffId: 3,
+          date: "2026-04-28",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: "07:00",
+          clockOut: "15:00",
+          exception: null,
+        },
+        {
+          staffId: 3,
+          date: "2026-04-29",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: "07:05",
+          clockOut: "13:30",
+          exception: "Early Clock-Out",
+        },
+        {
+          staffId: 4,
+          date: "2026-04-28",
+          shiftStart: "08:00",
+          shiftEnd: "17:00",
+          clockIn: "07:55",
+          clockOut: "17:05",
+          exception: null,
+        },
+        {
+          staffId: 4,
+          date: "2026-04-29",
+          shiftStart: "08:00",
+          shiftEnd: "17:00",
+          clockIn: "08:00",
+          clockOut: "17:00",
+          exception: null,
+        },
+        {
+          staffId: 4,
+          date: "2026-04-30",
+          shiftStart: "08:00",
+          shiftEnd: "17:00",
+          clockIn: "08:00",
+          clockOut: "18:30",
+          exception: null,
+        },
+        {
+          staffId: 5,
+          date: "2026-04-28",
+          shiftStart: "06:00",
+          shiftEnd: "14:00",
+          clockIn: "05:58",
+          clockOut: "14:00",
+          exception: null,
+        },
+        {
+          staffId: 5,
+          date: "2026-04-29",
+          shiftStart: "06:00",
+          shiftEnd: "14:00",
+          clockIn: "06:00",
+          clockOut: "14:00",
+          exception: null,
+        },
+        {
+          staffId: 6,
+          date: "2026-04-28",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: "07:03",
+          clockOut: "15:00",
+          exception: null,
+        },
+        {
+          staffId: 6,
+          date: "2026-04-30",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: null,
+          clockOut: null,
+          exception: "Missing",
+        },
+        {
+          staffId: 7,
+          date: "2026-04-28",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:22",
+          clockOut: "16:00",
+          exception: "Late",
+        },
+        {
+          staffId: 7,
+          date: "2026-04-29",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:00",
+          clockOut: "16:00",
+          exception: null,
+        },
+        {
+          staffId: 8,
+          date: "2026-04-28",
+          shiftStart: "10:00",
+          shiftEnd: "18:00",
+          clockIn: "09:58",
+          clockOut: "18:00",
+          exception: null,
+        },
+        {
+          staffId: 8,
+          date: "2026-04-29",
+          shiftStart: "10:00",
+          shiftEnd: "18:00",
+          clockIn: "10:00",
+          clockOut: "18:00",
+          exception: null,
+        },
+        // Fortnight 2: 12–25 May 2026
+        {
+          staffId: 1,
+          date: "2026-05-05",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "07:58",
+          clockOut: "16:00",
+          exception: null,
+        },
+        {
+          staffId: 1,
+          date: "2026-05-06",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:00",
+          clockOut: "16:00",
+          exception: null,
+        },
+        {
+          staffId: 2,
+          date: "2026-05-05",
+          shiftStart: "09:00",
+          shiftEnd: "17:00",
+          clockIn: "09:00",
+          clockOut: "17:00",
+          exception: null,
+        },
+        {
+          staffId: 3,
+          date: "2026-05-05",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: "07:00",
+          clockOut: "15:00",
+          exception: null,
+        },
+        {
+          staffId: 4,
+          date: "2026-05-05",
+          shiftStart: "08:00",
+          shiftEnd: "17:00",
+          clockIn: "08:00",
+          clockOut: "17:00",
+          exception: null,
+        },
+        {
+          staffId: 5,
+          date: "2026-05-06",
+          shiftStart: "06:00",
+          shiftEnd: "14:00",
+          clockIn: "06:00",
+          clockOut: "14:00",
+          exception: null,
+        },
+        {
+          staffId: 6,
+          date: "2026-05-05",
+          shiftStart: "07:00",
+          shiftEnd: "15:00",
+          clockIn: "07:00",
+          clockOut: "15:00",
+          exception: null,
+        },
+        {
+          staffId: 7,
+          date: "2026-05-06",
+          shiftStart: "08:00",
+          shiftEnd: "16:00",
+          clockIn: "08:05",
+          clockOut: "16:00",
+          exception: "Late",
+        },
+        {
+          staffId: 8,
+          date: "2026-05-05",
+          shiftStart: "10:00",
+          shiftEnd: "18:00",
+          clockIn: "10:00",
+          clockOut: "18:00",
+          exception: null,
+        },
+      ];
+
+      const PAY_PERIODS = [
+        {
+          label: "28 Apr – 11 May 2026",
+          start: "2026-04-28",
+          end: "2026-05-11",
+        },
+        {
+          label: "12 May – 25 May 2026",
+          start: "2026-05-12",
+          end: "2026-05-25",
+        },
+      ];
+
+      // ══════════════════════════════════════
+      //  HELPERS
+      // ══════════════════════════════════════
+      function staffById(id) {
+        return STAFF.find((s) => s.id === id);
+      }
+      function initials(name) {
+        return name
+          .split(" ")
+          .map((n) => n[0])
+          .join("");
+      }
+
+      function calcHrs(ci, co) {
+        if (!ci || !co) return 0;
+        const [ch, cm] = ci.split(":").map(Number),
+          [oh, om] = co.split(":").map(Number);
+        return Math.max(0, (oh * 60 + om - (ch * 60 + cm)) / 60);
+      }
+
+      function getFilteredRecords() {
+        const pp =
+          PAY_PERIODS[parseInt(document.getElementById("payPeriod").value)];
+        const role = document.getElementById("filterRole").value;
+        return RECORDS.filter((r) => {
+          const st = staffById(r.staffId);
+          return (
+            r.date >= pp.start &&
+            r.date <= pp.end &&
+            (!role || st.role === role)
+          );
+        });
+      }
+
+      function getFilteredStaff() {
+        const role = document.getElementById("filterRole").value;
+        return STAFF.filter((s) => !role || s.role === role);
+      }
+
+      function fmt(n) {
+        return n.toFixed(1);
+      }
+      function fmtMoney(n) {
+        return (
+          "$" +
+          n.toLocaleString("en-AU", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        );
+      }
+
+      function statCard(label, value, icon, bg, color) {
+        return `<div class="stat-card">
+    <div class="icon-box" style="background:${bg};color:${color}"><i class="bi bi-${icon}"></i></div>
+    <div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>
+  </div>`;
+      }
+
+      // ══════════════════════════════════════
+      //  POPULATE PAY PERIOD DROPDOWN
+      // ══════════════════════════════════════
+      function populatePayPeriods() {
+        const sel = document.getElementById("payPeriod");
+        sel.innerHTML = PAY_PERIODS.map(
+          (p, i) => `<option value="${i}">${p.label}</option>`,
+        ).join("");
+      }
+
+      // ══════════════════════════════════════
+      //  RENDER REPORT
+      // ══════════════════════════════════════
+      function renderReport() {
+        const type = document.getElementById("reportType").value;
+        const pp =
+          PAY_PERIODS[parseInt(document.getElementById("payPeriod").value)];
+        document.getElementById("reportSubtitle").textContent =
+          "Period: " + pp.label;
+
+        const titles = {
+          hours: "Hours Worked Report",
+          attendance: "Attendance Summary",
+          exceptions: "Exceptions Summary",
+          payroll: "Payroll Summary",
+        };
+        document.getElementById("reportTitle").textContent = titles[type];
+
+        if (type === "hours") renderHours();
+        if (type === "attendance") renderAttendance();
+        if (type === "exceptions") renderExceptions();
+        if (type === "payroll") renderPayroll();
+      }
+
+      // ── Hours Worked ──
+      function renderHours() {
+        const recs = getFilteredRecords();
+        const staff = getFilteredStaff();
+
+        let totalHrs = 0,
+          totalOT = 0;
+        const rows = staff.map((st) => {
+          const myRecs = recs.filter((r) => r.staffId === st.id);
+          const hrs = myRecs.reduce(
+            (a, r) => a + calcHrs(r.clockIn, r.clockOut),
+            0,
+          );
+          const rostered = myRecs.length * 8;
+          const ot = Math.max(0, hrs - 38);
+          totalHrs += hrs;
+          totalOT += ot;
+          return { st, shifts: myRecs.length, rostered, hrs, ot };
+        });
+
+        document.getElementById("summaryCards").innerHTML =
+          statCard(
+            "Total Staff",
+            staff.length,
+            "people-fill",
+            "#e8edc8",
+            "#696c2b",
+          ) +
+          statCard(
+            "Total Hours",
+            fmt(totalHrs) + "h",
+            "clock-fill",
+            "#d4edda",
+            "#28a745",
+          ) +
+          statCard(
+            "Overtime Hours",
+            fmt(totalOT) + "h",
+            "alarm-fill",
+            "#fff3cd",
+            "#856404",
+          ) +
+          statCard(
+            "Avg Hours/Staff",
+            staff.length ? fmt(totalHrs / staff.length) + "h" : "0h",
+            "graph-up",
+            "#d4e6f1",
+            "#1a6b9a",
+          );
+
+        document.getElementById("reportHead").innerHTML = `<tr>
+    <th>Staff</th><th>Role</th><th>Shifts</th>
+    <th>Rostered Hrs</th><th>Actual Hrs</th><th>Overtime</th><th>Variance</th>
+  </tr>`;
+
+        document.getElementById("reportBody").innerHTML = rows
+          .map(({ st, shifts, rostered, hrs, ot }) => {
+            const variance = hrs - rostered;
+            const varClass = variance >= 0 ? "text-success" : "text-danger";
+            return `<tr>
+      <td><div class="staff-cell-sm">
+        <div class="avatar-sm">${initials(st.name)}</div>
+        <div><div class="fw-semibold" style="font-size:.85rem">${st.name}</div>
+             <div style="font-size:.72rem;color:#6c757d">${st.staffNo}</div></div>
+      </div></td>
+      <td><span class="role-pill">${st.role}</span></td>
+      <td>${shifts}</td>
+      <td>${rostered}h</td>
+      <td class="fw-semibold">${fmt(hrs)}h</td>
+      <td class="${ot > 0 ? "text-warning fw-semibold" : ""}">${fmt(ot)}h</td>
+      <td class="${varClass} fw-semibold">${variance >= 0 ? "+" : ""}${fmt(variance)}h</td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      // ── Attendance ──
+      function renderAttendance() {
+        const recs = getFilteredRecords();
+        const staff = getFilteredStaff();
+
+        let totalOnTime = 0,
+          totalLate = 0,
+          totalMissing = 0;
+        const rows = staff.map((st) => {
+          const myRecs = recs.filter((r) => r.staffId === st.id);
+          const onTime = myRecs.filter((r) => r.clockIn && !r.exception).length;
+          const late = myRecs.filter((r) => r.exception === "Late").length;
+          const missing = myRecs.filter((r) => !r.clockIn).length;
+          const rate = myRecs.length
+            ? Math.round(((myRecs.length - missing) / myRecs.length) * 100)
+            : 0;
+          totalOnTime += onTime;
+          totalLate += late;
+          totalMissing += missing;
+          return { st, total: myRecs.length, onTime, late, missing, rate };
+        });
+
+        document.getElementById("summaryCards").innerHTML =
+          statCard(
+            "Total Rostered",
+            recs.length,
+            "calendar-check",
+            "#e8edc8",
+            "#696c2b",
+          ) +
+          statCard(
+            "On Time",
+            totalOnTime,
+            "check-circle-fill",
+            "#d4edda",
+            "#28a745",
+          ) +
+          statCard("Late", totalLate, "clock-history", "#fff3cd", "#856404") +
+          statCard(
+            "Missing",
+            totalMissing,
+            "person-x-fill",
+            "#fdecea",
+            "#c0392b",
+          );
+
+        document.getElementById("reportHead").innerHTML = `<tr>
+    <th>Staff</th><th>Role</th><th>Total Shifts</th>
+    <th>On Time</th><th>Late</th><th>Missing</th><th>Attendance Rate</th>
+  </tr>`;
+
+        document.getElementById("reportBody").innerHTML = rows
+          .map(({ st, total, onTime, late, missing, rate }) => {
+            const rateClass =
+              rate >= 90
+                ? "text-success"
+                : rate >= 70
+                  ? "text-warning"
+                  : "text-danger";
+            return `<tr>
+      <td><div class="staff-cell-sm">
+        <div class="avatar-sm">${initials(st.name)}</div>
+        <div><div class="fw-semibold" style="font-size:.85rem">${st.name}</div>
+             <div style="font-size:.72rem;color:#6c757d">${st.staffNo}</div></div>
+      </div></td>
+      <td><span class="role-pill">${st.role}</span></td>
+      <td>${total}</td>
+      <td class="text-success fw-semibold">${onTime}</td>
+      <td class="${late > 0 ? "text-warning fw-semibold" : ""}">${late}</td>
+      <td class="${missing > 0 ? "text-danger fw-semibold" : ""}">${missing}</td>
+      <td><span class="rate-bar-wrap">
+        <div class="rate-bar" style="width:${rate}%;background:${rate >= 90 ? "#28a745" : rate >= 70 ? "#ffc107" : "#dc3545"}"></div>
+      </span><span class="${rateClass} fw-semibold ms-2">${rate}%</span></td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      // ── Exceptions ──
+      function renderExceptions() {
+        const recs = getFilteredRecords();
+        const staff = getFilteredStaff();
+
+        let totalEx = 0;
+        const rows = staff
+          .map((st) => {
+            const myRecs = recs.filter((r) => r.staffId === st.id);
+            const late = myRecs.filter((r) => r.exception === "Late").length;
+            const missing = myRecs.filter(
+              (r) => r.exception === "Missing",
+            ).length;
+            const early = myRecs.filter(
+              (r) => r.exception === "Early Clock-Out",
+            ).length;
+            const total = late + missing + early;
+            totalEx += total;
+            return { st, late, missing, early, total };
+          })
+          .filter((r) => true);
+
+        document.getElementById("summaryCards").innerHTML =
+          statCard(
+            "Total Exceptions",
+            totalEx,
+            "exclamation-triangle-fill",
+            "#fdecea",
+            "#c0392b",
+          ) +
+          statCard(
+            "Late Clock-Ins",
+            rows.reduce((a, r) => a + r.late, 0),
+            "clock-history",
+            "#fff3cd",
+            "#856404",
+          ) +
+          statCard(
+            "Missing",
+            rows.reduce((a, r) => a + r.missing, 0),
+            "person-x-fill",
+            "#fdecea",
+            "#c0392b",
+          ) +
+          statCard(
+            "Early Clock-Outs",
+            rows.reduce((a, r) => a + r.early, 0),
+            "box-arrow-left",
+            "#e8edc8",
+            "#696c2b",
+          );
+
+        document.getElementById("reportHead").innerHTML = `<tr>
+    <th>Staff</th><th>Role</th><th>Late</th><th>Missing</th><th>Early Clock-Out</th><th>Total Exceptions</th>
+  </tr>`;
+
+        document.getElementById("reportBody").innerHTML = rows
+          .map(
+            ({ st, late, missing, early, total }) => `<tr>
+    <td><div class="staff-cell-sm">
+      <div class="avatar-sm">${initials(st.name)}</div>
+      <div><div class="fw-semibold" style="font-size:.85rem">${st.name}</div>
+           <div style="font-size:.72rem;color:#6c757d">${st.staffNo}</div></div>
+    </div></td>
+    <td><span class="role-pill">${st.role}</span></td>
+    <td class="${late > 0 ? "text-warning fw-semibold" : ""}">${late}</td>
+    <td class="${missing > 0 ? "text-danger fw-semibold" : ""}">${missing}</td>
+    <td class="${early > 0 ? "text-warning fw-semibold" : ""}">${early}</td>
+    <td><span class="exc-total ${total > 0 ? "exc-has" : ""}">${total}</span></td>
+  </tr>`,
+          )
+          .join("");
+      }
+
+      // ── Payroll ──
+      function renderPayroll() {
+        const recs = getFilteredRecords();
+        const staff = getFilteredStaff();
+
+        let grandTotal = 0;
+        const rows = staff.map((st) => {
+          const myRecs = recs.filter((r) => r.staffId === st.id);
+          const hrs = myRecs.reduce(
+            (a, r) => a + calcHrs(r.clockIn, r.clockOut),
+            0,
+          );
+          const regHrs = Math.min(hrs, 38);
+          const otHrs = Math.max(0, hrs - 38);
+          const gross = regHrs * st.payRate + otHrs * st.payRate * 1.5;
+          grandTotal += gross;
+          return { st, hrs, regHrs, otHrs, gross };
+        });
+
+        document.getElementById("summaryCards").innerHTML =
+          statCard(
+            "Total Staff",
+            staff.length,
+            "people-fill",
+            "#e8edc8",
+            "#696c2b",
+          ) +
+          statCard(
+            "Total Hours",
+            fmt(rows.reduce((a, r) => a + r.hrs, 0)) + "h",
+            "clock-fill",
+            "#d4edda",
+            "#28a745",
+          ) +
+          statCard(
+            "Overtime Hours",
+            fmt(rows.reduce((a, r) => a + r.otHrs, 0)) + "h",
+            "alarm",
+            "#fff3cd",
+            "#856404",
+          ) +
+          statCard(
+            "Gross Payroll",
+            fmtMoney(grandTotal),
+            "cash-stack",
+            "#d4e6f1",
+            "#1a6b9a",
+          );
+
+        document.getElementById("reportHead").innerHTML = `<tr>
+    <th>Staff</th><th>Role</th><th>Pay Rate</th>
+    <th>Regular Hrs</th><th>Overtime Hrs</th><th>Total Hrs</th><th>Gross Pay</th>
+  </tr>`;
+
+        document.getElementById("reportBody").innerHTML =
+          rows
+            .map(
+              ({ st, hrs, regHrs, otHrs, gross }) => `<tr>
+    <td><div class="staff-cell-sm">
+      <div class="avatar-sm">${initials(st.name)}</div>
+      <div><div class="fw-semibold" style="font-size:.85rem">${st.name}</div>
+           <div style="font-size:.72rem;color:#6c757d">${st.staffNo}</div></div>
+    </div></td>
+    <td><span class="role-pill">${st.role}</span></td>
+    <td>${fmtMoney(st.payRate)}/hr</td>
+    <td>${fmt(regHrs)}h</td>
+    <td class="${otHrs > 0 ? "text-warning fw-semibold" : ""}">${fmt(otHrs)}h</td>
+    <td class="fw-semibold">${fmt(hrs)}h</td>
+    <td class="fw-semibold text-success">${fmtMoney(gross)}</td>
+  </tr>`,
+            )
+            .join("") +
+          `<tr class="total-row">
+    <td colspan="5" class="text-end fw-bold">Total Gross Payroll</td>
+    <td class="fw-bold">${fmt(rows.reduce((a, r) => a + r.hrs, 0))}h</td>
+    <td class="fw-bold text-success">${fmtMoney(grandTotal)}</td>
+  </tr>`;
+      }
+
+      // ── PRINT ──
+      function printReport() {
+        window.print();
+      }
+
+      // ══════════════════════════════════════
+      //  INIT
+      // ══════════════════════════════════════
+      document.getElementById("topbarDate").textContent =
+        new Date().toLocaleDateString("en-AU", {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      populatePayPeriods();
+      renderReport();
+    </script>
+  </body>
+</html>
