@@ -1,0 +1,103 @@
+body {
+    background-color: #f6f7fb;
+    font-family: Arial, sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+    min-height: 100vh;
+    background: #696c2b;
+    color: white;
+}
+
+.sidebar .nav-link {
+    color: rgba(255,255,255,0.85);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    padding: 10px 15px;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+}
+
+.brand {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Topbar */
+.topbar {
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* Cards */
+.card-box {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.section-title {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.icon-box {
+    width: 50px;
+    height: 50px;
+    background: rgba(105,108,43,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 22px;
+    color: #696c2b;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 20px;
+}
+
+.stat-number {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.table thead {
+    background: #f1f5f9;
+}
+
+.table td,
+.table th {
+    vertical-align: middle;
+}
+
+/* Clock Button */
+#clockBtn {
+    width: 250px;
+    border-radius: 12px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.quick-btn {
+    min-width: 150px;
+}
+
+@media (max-width:768px) {
+
+    .sidebar {
+        min-height: auto;
+    }
+
+    #clockBtn {
+        width: 100%;
+    }
+}
