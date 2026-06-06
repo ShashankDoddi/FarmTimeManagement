@@ -1,416 +1,250 @@
 <?php
 session_start();
 require_once 'config/database.php';
-
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit();
-}
+if (!isset($_SESSION['admin_id'])) { header('Location: login.php'); exit(); }
 
 $conn    = getConnection();
-$message = '';
-$msgType = '';
+$adminId = $_SESSION['admin_id'];
+$msg = ''; $msgType = '';
 
-// ── CLOCK IN ─────────────────────────────────────────────────
+// MANUAL CLOCK IN
 if (isset($_POST['action']) && $_POST['action'] === 'clock_in') {
-    $staff_id        = intval($_POST['staff_id']);
-    $device_id       = intval($_POST['device_id'] ?? 0) ?: null;
-    $clock_in_method = $_POST['clock_in_method'] ?? 'manual';
-
-    // Already clocked in?
-    $check = $conn->prepare("SELECT attendance_id FROM attendance WHERE staff_id=? AND clock_out IS NULL LIMIT 1");
-    $check->bind_param('i', $staff_id);
-    $check->execute();
-    $check->store_result();
-
-    if ($check->num_rows > 0) {
-        $message = 'This staff member is already clocked in!';
-        $msgType = 'warning';
-    } else {
-        // Check roster for lateness
-        $rStmt = $conn->prepare("SELECT roster_id, start_time FROM roster WHERE staff_id=? AND work_date=CURDATE() LIMIT 1");
-        $rStmt->bind_param('i', $staff_id);
-        $rStmt->execute();
-        $roster = $rStmt->get_result()->fetch_assoc();
-        $rStmt->close();
-
-        $roster_id = $roster['roster_id'] ?? null;
-        $status    = 'present';
-        if ($roster) {
-            $scheduled = strtotime(date('Y-m-d').' '.$roster['start_time']);
-            if (time() > $scheduled + 300) $status = 'late';
+    $staffId = intval($_POST['staff_id']??0);
+    if ($staffId) {
+        $exists = $conn->query("SELECT attendance_id FROM attendance WHERE staff_id=$staffId AND DATE(clock_in)=CURDATE() AND clock_out IS NULL");
+        if ($exists && $exists->num_rows > 0) { $msg='Staff already clocked in today.'; $msgType='error'; }
+        else {
+            $roster = $conn->query("SELECT roster_id,start_time FROM roster WHERE staff_id=$staffId AND work_date=CURDATE() LIMIT 1")->fetch_assoc();
+            $rid    = $roster ? intval($roster['roster_id']) : null;
+            $status = 'present';
+            if ($roster && time() > strtotime(date('Y-m-d').' '.$roster['start_time'])+300) $status='late';
+            if ($rid) {
+                $stmt = $conn->prepare("INSERT INTO attendance (roster_id,staff_id,clock_in,clock_in_method,attendance_status) VALUES (?,?,NOW(),'manual',?)");
+                $stmt->bind_param('iis',$rid,$staffId,$status); $stmt->execute(); $stmt->close();
+            } else {
+                $stmt = $conn->prepare("INSERT INTO attendance (staff_id,clock_in,clock_in_method,attendance_status) VALUES (?,NOW(),'manual',?)");
+                $stmt->bind_param('is',$staffId,$status); $stmt->execute(); $stmt->close();
+            }
+            $msg='Clocked in successfully!'; $msgType='success';
         }
-
-        $stmt = $conn->prepare("
-            INSERT INTO attendance (roster_id, staff_id, device_id, clock_in, clock_in_method, attendance_status)
-            VALUES (?, ?, ?, NOW(), ?, ?)
-        ");
-        $stmt->bind_param('iiiss', $roster_id, $staff_id, $device_id, $clock_in_method, $status);
-
-        if ($stmt->execute()) {
-            auditLog($conn, 'CREATE', 'attendance', $conn->insert_id, 'Staff clocked in');
-            $message = 'Clock in recorded!' . ($status === 'late' ? ' ⚠️ Marked as Late.' : '');
-            $msgType = $status === 'late' ? 'warning' : 'success';
-        }
-        $stmt->close();
     }
-    $check->close();
 }
 
-// ── CLOCK OUT ────────────────────────────────────────────────
+// MANUAL CLOCK OUT
 if (isset($_POST['action']) && $_POST['action'] === 'clock_out') {
-    $attendance_id    = intval($_POST['attendance_id']);
-    $clock_out_method = $_POST['clock_out_method'] ?? 'manual';
-
-    $stmt = $conn->prepare("UPDATE attendance SET clock_out=NOW(), clock_out_method=? WHERE attendance_id=? AND clock_out IS NULL");
-    $stmt->bind_param('si', $clock_out_method, $attendance_id);
-
-    if ($stmt->execute() && $stmt->affected_rows > 0) {
-        auditLog($conn, 'UPDATE', 'attendance', $attendance_id, 'Staff clocked out');
-        $message = 'Clock out recorded successfully!';
-        $msgType = 'success';
-    } else {
-        $message = 'Clock out failed or already clocked out.';
-        $msgType = 'error';
-    }
-    $stmt->close();
+    $attId = intval($_POST['attendance_id']??0);
+    $conn->query("UPDATE attendance SET clock_out=NOW(),clock_out_method='manual' WHERE attendance_id=$attId");
+    $msg='Clocked out successfully!'; $msgType='success';
 }
 
-// ── LOAD DATA ─────────────────────────────────────────────────
-// Active staff
-$staff = $conn->query("
-    SELECT s.staff_id, s.staff_number, s.first_name, s.last_name, r.role_name
-    FROM staff s
-    LEFT JOIN roles r ON s.role_id = r.role_id
-    WHERE s.status = 'active'
-    ORDER BY s.first_name
-")->fetch_all(MYSQLI_ASSOC);
+// Filters
+$search    = trim($_GET['search']??'');
+$dateFrom  = $_GET['date_from']??date('Y-m-d', strtotime('-7 days'));
+$dateTo    = $_GET['date_to']??date('Y-m-d');
+$statusF   = $_GET['status']??'all';
 
-// Devices
-$devices = $conn->query("SELECT device_id, device_name, location FROM devices ORDER BY device_name")->fetch_all(MYSQLI_ASSOC);
+$where = "WHERE DATE(a.clock_in) BETWEEN '$dateFrom' AND '$dateTo'";
+if ($search) { $ss=$conn->real_escape_string($search); $where.=" AND (s.first_name LIKE '%$ss%' OR s.last_name LIKE '%$ss%' OR s.staff_number LIKE '%$ss%')"; }
+if ($statusF!=='all') { $sf=$conn->real_escape_string($statusF); $where.=" AND a.attendance_status='$sf'"; }
 
-// Currently clocked in
-$clockedIn = $conn->query("
-    SELECT a.attendance_id, a.staff_id, a.clock_in, a.clock_in_method,
-           CONCAT(s.first_name,' ',s.last_name) AS staff_name,
-           s.staff_number, r.role_name,
-           TIMESTAMPDIFF(MINUTE, a.clock_in, NOW()) AS minutes_worked
+$attRes = $conn->query("
+    SELECT a.*,CONCAT(s.first_name,' ',s.last_name) AS staff_name,s.staff_number,
+           LEFT(s.first_name,1) AS fi,LEFT(s.last_name,1) AS li,r.role_name,
+           ro.start_time AS shift_start,ro.end_time AS shift_end,
+           TIMESTAMPDIFF(MINUTE,a.clock_in,IFNULL(a.clock_out,NOW())) AS mins_worked
     FROM attendance a
-    JOIN staff s ON a.staff_id = s.staff_id
-    LEFT JOIN roles r ON s.role_id = r.role_id
-    WHERE DATE(a.clock_in) = CURDATE() AND a.clock_out IS NULL
-    ORDER BY a.clock_in
-")->fetch_all(MYSQLI_ASSOC);
-
-// Today's full attendance
-$todayAll = $conn->query("
-    SELECT a.attendance_id, a.clock_in, a.clock_out,
-           a.clock_in_method, a.clock_out_method, a.attendance_status,
-           CONCAT(s.first_name,' ',s.last_name) AS staff_name,
-           s.staff_number, r.role_name, d.device_name,
-           TIMESTAMPDIFF(MINUTE, a.clock_in, IFNULL(a.clock_out, NOW())) AS mins
-    FROM attendance a
-    JOIN staff s ON a.staff_id = s.staff_id
-    LEFT JOIN roles r ON s.role_id = r.role_id
-    LEFT JOIN devices d ON a.device_id = d.device_id
-    WHERE DATE(a.clock_in) = CURDATE()
+    JOIN staff s ON a.staff_id=s.staff_id
+    LEFT JOIN roles r ON s.role_id=r.role_id
+    LEFT JOIN roster ro ON a.roster_id=ro.roster_id
+    $where
     ORDER BY a.clock_in DESC
-")->fetch_all(MYSQLI_ASSOC);
+    LIMIT 100
+");
+$attendance = $attRes ? $attRes->fetch_all(MYSQLI_ASSOC) : [];
+
+$staffList = $conn->query("SELECT staff_id,first_name,last_name FROM staff WHERE LOWER(status)='active' ORDER BY first_name")->fetch_all(MYSQLI_ASSOC);
+
+function sc3($c,$s){ $r=$c->query($s); return($r&&$r->num_rows>0)?intval($r->fetch_assoc()['c']):0; }
+$todayTotal   = sc3($conn,"SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE()");
+$todayClocked = sc3($conn,"SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE() AND clock_out IS NULL");
+$todayOut     = sc3($conn,"SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE() AND clock_out IS NOT NULL");
+$todayLate    = sc3($conn,"SELECT COUNT(*) AS c FROM attendance WHERE DATE(clock_in)=CURDATE() AND attendance_status='late'");
 
 $conn->close();
+$initials = strtoupper(substr($_SESSION['username'],0,2));
+
+function fmtMins($m){ if(!$m) return '—'; $h=floor($m/60); $mn=$m%60; return $h>0?"{$h}h {$mn}m":"{$mn}m"; }
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clock In / Out — Workforce</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Segoe UI',sans-serif; background:#f0f2f5; display:flex; min-height:100vh; }
-
-        /* Sidebar */
-        .sidebar { width:230px; background:#1a1a2e; color:#fff; min-height:100vh; position:fixed; top:0; left:0; display:flex; flex-direction:column; }
-        .sidebar-brand { padding:22px 20px; font-size:17px; font-weight:700; border-bottom:1px solid rgba(255,255,255,0.08); }
-        .sidebar-user  { padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); font-size:13px; }
-        .sidebar-user .name { font-weight:600; font-size:14px; }
-        .sidebar-user .role { color:#aaa; font-size:12px; margin-top:2px; }
-        .nav-group { padding:10px 20px 2px; font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; margin-top:6px; }
-        .nav-link { display:flex; align-items:center; gap:10px; padding:10px 20px; color:#bbb; text-decoration:none; font-size:14px; transition:all 0.15s; border-left:3px solid transparent; }
-        .nav-link:hover  { background:rgba(255,255,255,0.07); color:#fff; }
-        .nav-link.active { background:rgba(79,70,229,0.18); color:#fff; border-left-color:#4f46e5; }
-        .sidebar-footer { margin-top:auto; padding:16px 20px; border-top:1px solid rgba(255,255,255,0.08); }
-        .btn-logout { display:block; text-align:center; background:#dc2626; color:#fff; padding:9px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; }
-
-        /* Main */
-        .main { margin-left:230px; flex:1; }
-        .topbar { background:#fff; padding:0 28px; height:58px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
-        .topbar-title { font-size:18px; font-weight:700; color:#1a1a2e; }
-        .content { padding:24px 28px; }
-
-        /* Messages */
-        .msg { padding:13px 18px; border-radius:8px; margin-bottom:20px; font-size:14px; font-weight:500; }
-        .msg.success { background:#f0fdf4; border:1px solid #bbf7d0; color:#16a34a; }
-        .msg.error   { background:#fff5f5; border:1px solid #fecaca; color:#dc2626; }
-        .msg.warning { background:#fffbeb; border:1px solid #fde68a; color:#d97706; }
-
-        /* Grid */
-        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
-
-        /* Cards */
-        .card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; }
-        .card-head { padding:16px 20px; border-bottom:1px solid #f0f0f0; font-size:15px; font-weight:600; color:#1a1a2e; display:flex; align-items:center; justify-content:space-between; }
-        .card-body { padding:20px; }
-
-        /* Live Clock */
-        .live-clock { text-align:center; font-size:40px; font-weight:700; color:#1a1a2e; letter-spacing:3px; padding:10px 0 4px; }
-        .live-date  { text-align:center; font-size:13px; color:#888; margin-bottom:18px; }
-
-        /* Form */
-        .form-group { margin-bottom:14px; }
-        label { display:block; font-size:13px; font-weight:600; color:#555; margin-bottom:5px; }
-        select { width:100%; padding:10px 14px; border:1.5px solid #e0e0e0; border-radius:8px; font-size:14px; outline:none; }
-        select:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,0.1); }
-
-        .btn-clock-in  { width:100%; padding:13px; background:#16a34a; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; transition:background 0.2s; }
-        .btn-clock-in:hover { background:#15803d; }
-        .btn-clock-out { padding:7px 12px; background:#dc2626; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
-        .btn-clock-out:hover { background:#b91c1c; }
-
-        /* Clocked in list */
-        .clocked-item { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
-        .clocked-item:last-child { margin-bottom:0; }
-        .clocked-name { font-weight:600; font-size:14px; color:#1a1a2e; }
-        .clocked-sub  { font-size:12px; color:#666; margin-top:2px; }
-        .clocked-form { display:flex; align-items:center; gap:8px; }
-        .clocked-form select { width:auto; padding:6px 10px; font-size:12px; }
-
-        /* Table */
-        table { width:100%; border-collapse:collapse; }
-        th { background:#f8f9fa; padding:11px 16px; text-align:left; font-size:12px; font-weight:600; color:#888; text-transform:uppercase; }
-        td { padding:12px 16px; font-size:13px; color:#333; border-bottom:1px solid #f5f5f5; vertical-align:middle; }
-        tr:last-child td { border-bottom:none; }
-        tr:hover td { background:#fafafa; }
-
-        .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; }
-        .b-present { background:#f0fdf4; color:#16a34a; }
-        .b-late    { background:#fffbeb; color:#d97706; }
-        .b-absent  { background:#fff5f5; color:#dc2626; }
-        .b-partial { background:#eff6ff; color:#2563eb; }
-
-        .still-in { color:#16a34a; font-size:12px; font-weight:600; }
-        .empty { text-align:center; padding:32px; color:#bbb; font-size:13px; }
-    </style>
+    <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <title>Timesheets — Farm TMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="adminStyle.css"/>
 </head>
 <body>
+<div class="dashboard-wrapper">
+    <aside class="sidebar">
+        <div class="brand"><i class="bi bi-clock-history me-2"></i>Farm TMS</div>
+        <nav class="nav flex-column">
+            <span class="nav-section-label">Main</span>
+            <a href="dashboard.php" class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a href="roster.php" class="nav-link"><i class="bi bi-calendar3"></i> Roster</a>
+            <a href="clockinout.php" class="nav-link active"><i class="bi bi-clock"></i> Timesheets</a>
+            <a href="exceptions.php" class="nav-link"><i class="bi bi-exclamation-circle"></i> Exceptions</a>
+            <span class="nav-section-label">People</span>
+            <a href="staff.php" class="nav-link"><i class="bi bi-people"></i> Staff</a>
+            <a href="settings.php?tab=roles" class="nav-link"><i class="bi bi-person-badge"></i> Roles</a>
+            <span class="nav-section-label">System</span>
+            <a href="reports.php" class="nav-link"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <a href="payslips.php" class="nav-link"><i class="bi bi-receipt"></i> Payslips</a>
+            <a href="settings.php" class="nav-link"><i class="bi bi-gear"></i> Settings</a>
+        </nav>
+        <div class="mt-auto p-3" style="border-top:1px solid rgba(255,255,255,0.15)">
+            <a href="logout.php" class="nav-link" style="color:rgba(255,100,100,0.85)"><i class="bi bi-box-arrow-right me-2"></i>Logout</a>
+        </div>
+    </aside>
 
-<!-- Sidebar -->
-<div class="sidebar">
-    <div class="sidebar-brand">⏱ Workforce</div>
-    <div class="sidebar-user">
-        <div class="name">👤 <?= htmlspecialchars($_SESSION['username']) ?></div>
-        <div class="role"><?= htmlspecialchars($_SESSION['permission_level']) ?> • <?= htmlspecialchars($_SESSION['site_name'] ?? '') ?></div>
-    </div>
-    <div class="nav-group">Main</div>
-    <a href="dashboard.php"  class="nav-link">🏠 Dashboard</a>
-    <a href="clockinout.php" class="nav-link active">⏱ Clock In / Out</a>
-    <div class="nav-group">Management</div>
-    <a href="staff.php"      class="nav-link">👥 Staff</a>
-    <a href="contracts.php"  class="nav-link">📄 Contracts</a>
-    <a href="roster.php"     class="nav-link">📅 Roster</a>
-    <a href="leave.php"      class="nav-link">🏖️ Leave</a>
-    <div class="nav-group">Payroll</div>
-    <a href="payroll.php"    class="nav-link">💰 Payroll</a>
-    <div class="nav-group">System</div>
-    <a href="auditlogs.php"  class="nav-link">🔍 Audit Logs</a>
-    <div class="sidebar-footer">
-        <a href="logout.php" class="btn-logout">🚪 Logout</a>
-    </div>
-</div>
-
-<!-- Main -->
-<div class="main">
-    <div class="topbar">
-        <div class="topbar-title">⏱ Clock In / Clock Out</div>
-        <div style="font-size:13px;color:#888;"><?= date('l, F j, Y') ?></div>
-    </div>
-
-    <div class="content">
-
-        <?php if ($message): ?>
-            <div class="msg <?= $msgType ?>">
-                <?= $msgType==='success' ? '✅' : ($msgType==='warning' ? '⚠️' : '❌') ?>
-                <?= htmlspecialchars($message) ?>
+    <div class="main-content">
+        <header class="topbar">
+            <span class="page-title">Timesheets</span>
+            <div class="topbar-right">
+                <span class="topbar-date"><i class="bi bi-calendar3 me-1"></i><?= date('D, d M Y') ?></span>
+                <div class="admin-badge"><div class="admin-avatar"><?= $initials ?></div><?= htmlspecialchars($_SESSION['username']) ?></div>
             </div>
-        <?php endif; ?>
+        </header>
 
-        <div class="grid-2">
+        <div class="page-body">
+            <?php if ($msg): ?>
+            <div class="toast-<?= $msgType ?>"><i class="bi bi-<?= $msgType==='success'?'check-circle':'exclamation-circle' ?>-fill"></i><?= htmlspecialchars($msg) ?></div>
+            <?php endif; ?>
 
-            <!-- Clock In Form -->
-            <div class="card">
-                <div class="card-head">✅ Clock In</div>
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card"><div class="icon-box"><i class="bi bi-people-fill"></i></div><div><div class="stat-value"><?= $todayTotal ?></div><div class="stat-label">Today's Records</div></div></div>
+                <div class="stat-card"><div class="icon-box"><i class="bi bi-person-check-fill"></i></div><div><div class="stat-value"><?= $todayClocked ?></div><div class="stat-label">Currently In</div></div></div>
+                <div class="stat-card"><div class="icon-box"><i class="bi bi-box-arrow-right"></i></div><div><div class="stat-value"><?= $todayOut ?></div><div class="stat-label">Clocked Out</div></div></div>
+                <div class="stat-card"><div class="icon-box"><i class="bi bi-clock-history"></i></div><div><div class="stat-value"><?= $todayLate ?></div><div class="stat-label">Late Today</div></div></div>
+            </div>
+
+            <!-- Quick Clock In -->
+            <div class="card-box mb-4">
                 <div class="card-body">
-                    <div class="live-clock" id="clock">--:--:--</div>
-                    <div class="live-date"  id="cdate"></div>
-
-                    <form method="POST" action="clockinout.php">
+                    <p class="section-title mb-3"><i class="bi bi-clock me-1"></i> Quick Clock In</p>
+                    <form method="POST" class="d-flex gap-3 flex-wrap">
                         <input type="hidden" name="action" value="clock_in">
-
-                        <div class="form-group">
-                            <label>Staff Member *</label>
-                            <select name="staff_id" required>
-                                <option value="">— Select Staff Member —</option>
-                                <?php foreach ($staff as $s): ?>
-                                    <option value="<?= $s['staff_id'] ?>">
-                                        <?= htmlspecialchars($s['first_name'].' '.$s['last_name']) ?>
-                                        (<?= htmlspecialchars($s['staff_number']) ?>)
-                                        — <?= htmlspecialchars($s['role_name'] ?? '') ?>
-                                    </option>
+                        <div class="filter-group flex-grow-1">
+                            <label>Select Staff Member</label>
+                            <select name="staff_id" class="filter-input" required>
+                                <option value="">Select staff member...</option>
+                                <?php foreach ($staffList as $s): ?>
+                                <option value="<?= $s['staff_id'] ?>"><?= htmlspecialchars($s['first_name'].' '.$s['last_name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
-                        <div class="form-group">
-                            <label>Clock In Method *</label>
-                            <select name="clock_in_method" required>
-                                <option value="manual">Manual</option>
-                                <option value="biometric">Biometric</option>
-                                <option value="card">Card</option>
-                                <option value="pin">PIN</option>
-                            </select>
+                        <div style="align-self:flex-end;">
+                            <button type="submit" class="btn-brand"><i class="bi bi-box-arrow-in-right me-1"></i> Clock In</button>
                         </div>
-
-                        <div class="form-group">
-                            <label>Device (optional)</label>
-                            <select name="device_id">
-                                <option value="">— No Device —</option>
-                                <?php foreach ($devices as $d): ?>
-                                    <option value="<?= $d['device_id'] ?>">
-                                        <?= htmlspecialchars($d['device_name']) ?>
-                                        <?= $d['location'] ? '('.$d['location'].')' : '' ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-clock-in">✅ Clock In Now</button>
                     </form>
                 </div>
             </div>
 
-            <!-- Currently Clocked In -->
-            <div class="card">
-                <div class="card-head">
-                    🟢 Currently Clocked In
-                    <span style="background:#f0fdf4;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:12px;">
-                        <?= count($clockedIn) ?> staff
-                    </span>
-                </div>
+            <!-- Filters + Table -->
+            <div class="card-box">
                 <div class="card-body">
-                    <?php if (empty($clockedIn)): ?>
-                        <div class="empty">No staff currently clocked in.</div>
-                    <?php else: ?>
-                        <?php foreach ($clockedIn as $a): ?>
-                        <div class="clocked-item">
-                            <div>
-                                <div class="clocked-name">👤 <?= htmlspecialchars($a['staff_name']) ?></div>
-                                <div class="clocked-sub">
-                                    <?= htmlspecialchars($a['staff_number']) ?> •
-                                    <?= htmlspecialchars($a['role_name'] ?? '') ?> •
-                                    In: <?= date('h:i A', strtotime($a['clock_in'])) ?> •
-                                    <?= $a['minutes_worked'] >= 60
-                                        ? floor($a['minutes_worked']/60).'h '.($a['minutes_worked']%60).'m'
-                                        : $a['minutes_worked'].'m' ?>
-                                </div>
-                            </div>
-                            <form method="POST" action="clockinout.php" class="clocked-form">
-                                <input type="hidden" name="action" value="clock_out">
-                                <input type="hidden" name="attendance_id" value="<?= $a['attendance_id'] ?>">
-                                <select name="clock_out_method">
-                                    <option value="manual">Manual</option>
-                                    <option value="biometric">Biometric</option>
-                                    <option value="card">Card</option>
-                                    <option value="pin">PIN</option>
-                                </select>
-                                <button type="submit" class="btn-clock-out">🚪 Out</button>
-                            </form>
+                    <!-- Filters -->
+                    <form method="GET" class="d-flex flex-wrap gap-3 align-items-end mb-4">
+                        <div class="filter-group">
+                            <label>Search</label>
+                            <input type="text" name="search" class="filter-input" placeholder="Name or Staff #" value="<?= htmlspecialchars($search) ?>">
                         </div>
-                        <?php endforeach; ?>
+                        <div class="filter-group">
+                            <label>From Date</label>
+                            <input type="date" name="date_from" class="filter-input" value="<?= $dateFrom ?>">
+                        </div>
+                        <div class="filter-group">
+                            <label>To Date</label>
+                            <input type="date" name="date_to" class="filter-input" value="<?= $dateTo ?>">
+                        </div>
+                        <div class="filter-group">
+                            <label>Status</label>
+                            <select name="status" class="filter-input" onchange="this.form.submit()">
+                                <option value="all" <?= $statusF==='all'?'selected':''?>>All Status</option>
+                                <option value="present" <?= $statusF==='present'?'selected':''?>>Present</option>
+                                <option value="late" <?= $statusF==='late'?'selected':''?>>Late</option>
+                                <option value="absent" <?= $statusF==='absent'?'selected':''?>>Absent</option>
+                            </select>
+                        </div>
+                        <div style="align-self:flex-end;"><button type="submit" class="btn-brand">Search</button></div>
+                    </form>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <p class="section-title mb-0">Attendance Records</p>
+                        <span style="font-size:0.82rem;color:var(--text-muted);"><?= count($attendance) ?> record(s)</span>
+                    </div>
+
+                    <?php if (empty($attendance)): ?>
+                    <div class="text-center py-5" style="color:var(--text-muted)">
+                        <i class="bi bi-clock-history" style="font-size:2.5rem;display:block;margin-bottom:10px;"></i>
+                        No attendance records found.
+                    </div>
+                    <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Staff</th><th>Date</th><th>Shift</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($attendance as $a):
+                                    $st = $a['attendance_status']??'present';
+                                    $sc = match($st) { 'late'=>'late', 'absent'=>'missing', 'incomplete'=>'missing', default=>'on-time' };
+                                ?>
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="admin-avatar" style="width:28px;height:28px;font-size:0.7rem;"><?= htmlspecialchars($a['fi'].$a['li']) ?></div>
+                                            <div><div style="font-weight:600;"><?= htmlspecialchars($a['staff_name']) ?></div><div style="font-size:0.78rem;color:var(--text-muted);"><?= htmlspecialchars($a['staff_number']) ?></div></div>
+                                        </div>
+                                    </td>
+                                    <td style="font-size:0.85rem;"><?= date('D d M', strtotime($a['clock_in'])) ?></td>
+                                    <td style="font-size:0.82rem;color:var(--text-muted);">
+                                        <?= $a['shift_start']?date('g:i A',strtotime($a['shift_start'])).' – '.date('g:i A',strtotime($a['shift_end'])):'—' ?>
+                                    </td>
+                                    <td style="font-weight:600;color:var(--brand);"><?= date('g:i A', strtotime($a['clock_in'])) ?></td>
+                                    <td><?= $a['clock_out'] ? date('g:i A', strtotime($a['clock_out'])) : '<span style="color:var(--text-muted);">—</span>' ?></td>
+                                    <td style="font-size:0.85rem;"><?= fmtMins($a['mins_worked']) ?></td>
+                                    <td><span class="badge-status badge-<?= $sc ?>"><?= ucfirst($st) ?></span></td>
+                                    <td>
+                                        <?php if (!$a['clock_out']): ?>
+                                        <form method="POST" style="display:inline;">
+                                            <input type="hidden" name="action" value="clock_out">
+                                            <input type="hidden" name="attendance_id" value="<?= $a['attendance_id'] ?>">
+                                            <button type="submit" class="btn-brand" style="padding:0.3rem 0.8rem;font-size:0.78rem;"
+                                                onclick="return confirm('Clock out now?')">
+                                                <i class="bi bi-box-arrow-right"></i> Clock Out
+                                            </button>
+                                        </form>
+                                        <?php else: ?>
+                                        <span style="font-size:0.82rem;color:var(--text-muted);">Complete</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-
-        <!-- Today's Attendance Table -->
-        <div class="card">
-            <div class="card-head">
-                📋 Today's Attendance — <?= date('l, F j, Y') ?>
-                <span style="background:#eff6ff;color:#2563eb;padding:3px 10px;border-radius:20px;font-size:12px;">
-                    <?= count($todayAll) ?> records
-                </span>
-            </div>
-            <?php if (empty($todayAll)): ?>
-                <div class="empty">No attendance records for today yet.</div>
-            <?php else: ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Staff</th>
-                        <th>Clock In</th>
-                        <th>Clock Out</th>
-                        <th>Duration</th>
-                        <th>Method</th>
-                        <th>Device</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($todayAll as $a): ?>
-                    <tr>
-                        <td>
-                            <strong><?= htmlspecialchars($a['staff_name']) ?></strong><br>
-                            <span style="font-size:11px;color:#888;"><?= $a['staff_number'] ?> • <?= $a['role_name'] ?></span>
-                        </td>
-                        <td><strong><?= date('h:i A', strtotime($a['clock_in'])) ?></strong></td>
-                        <td>
-                            <?php if ($a['clock_out']): ?>
-                                <strong><?= date('h:i A', strtotime($a['clock_out'])) ?></strong>
-                            <?php else: ?>
-                                <span class="still-in">● Still In</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php
-                            $h = floor($a['mins'] / 60);
-                            $m = $a['mins'] % 60;
-                            echo $h > 0 ? "{$h}h {$m}m" : "{$m}m";
-                            ?>
-                        </td>
-                        <td style="font-size:12px;color:#666;">
-                            <?= ucfirst($a['clock_in_method']) ?>
-                            <?= $a['clock_out_method'] ? ' / '.ucfirst($a['clock_out_method']) : '' ?>
-                        </td>
-                        <td style="font-size:12px;color:#888;"><?= htmlspecialchars($a['device_name'] ?? '—') ?></td>
-                        <td><span class="badge b-<?= $a['attendance_status'] ?>"><?= ucfirst($a['attendance_status']) ?></span></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-            <?php endif; ?>
-        </div>
-
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function tick() {
-    const now  = new Date();
-    document.getElementById('clock').textContent = now.toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    document.getElementById('cdate').textContent = now.toLocaleDateString('en-AU', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-}
-tick();
-setInterval(tick, 1000);
+<?php if ($msg): ?>setTimeout(()=>{ const t=document.querySelector('.toast-success,.toast-error'); if(t){t.style.opacity='0';setTimeout(()=>t.remove(),300);} },4000);<?php endif; ?>
 </script>
-
 </body>
 </html>
