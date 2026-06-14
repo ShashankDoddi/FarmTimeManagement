@@ -1,18 +1,11 @@
 <?php
-session_start();
-require_once 'config/database.php';
-
-if (isset($_SESSION['admin_id'])) {
-    $conn    = getConnection();
-    $adminId = $_SESSION['admin_id'];
-    $stmt    = $conn->prepare("INSERT INTO audit_logs (admin_id,action_type,target_table,target_id,reason,source_channel) VALUES (?,'LOGOUT','admin',?,'Admin logged out','web')");
-    $stmt->bind_param('ii', $adminId, $adminId);
-    $stmt->execute();
-    $stmt->close();
-    $conn->close();
+if (session_status() === PHP_SESSION_NONE) session_start();
+$_SESSION = array();
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time()-42000, $params["path"], $params["domain"], $params["secure"], $params["httponly"]);
 }
-
-session_unset();
 session_destroy();
-header('Location: login.php');
+header("Location: login.php");
+header("Cache-Control: no-cache, no-store, must-revalidate");
 exit();
